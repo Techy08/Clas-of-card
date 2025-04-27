@@ -170,7 +170,7 @@ const Lobby = () => {
   return (
     <>
       <Helmet>
-        <title>Ram-Sita Adventure | Lobby</title>
+        <title>RamSita: Clash of Cards | Lobby</title>
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-b from-indigo-900 via-purple-800 to-pink-800 flex flex-col items-center justify-center p-4">

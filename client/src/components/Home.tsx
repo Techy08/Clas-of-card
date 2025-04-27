@@ -110,8 +110,8 @@ const Home = () => {
   return (
     <>
       <Helmet>
-        <title>Ram-Sita Adventure | Home</title>
-        <meta name="description" content="A Ramayana-themed multiplayer card game" />
+        <title>RamSita: Clash of Cards | Home</title>
+        <meta name="description" content="Summon Legends. Command Destiny." />
       </Helmet>
 
       <div className="relative w-full h-screen overflow-hidden">
@@ -136,10 +136,10 @@ const Home = () => {
             className="text-center mb-16"
           >
             <h1 className="text-5xl md:text-7xl font-bold mb-2 text-white drop-shadow-lg">
-              Ram-Sita Adventure
+              RamSita: Clash of Cards
             </h1>
             <p className="text-xl text-white/80 drop-shadow-md">
-              The Epic Card Game
+              Summon Legends. Command Destiny.
             </p>
           </motion.div>
 
