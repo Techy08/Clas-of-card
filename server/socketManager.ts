@@ -24,6 +24,8 @@ export class SocketManager {
   private io: Server;
   private rooms: GameRooms = {};
   private waitingForRandomMatch: string[] = []; // Socket IDs waiting for random match
+  private playerSocketMap: Map<string, string> = new Map(); // Maps player socket ID to room ID
+  private randomMatchQueue: Array<{socketId: string, playerName: string}> = []; // Queue for random matchmaking
 
   constructor(io: Server) {
     this.io = io;
@@ -201,79 +203,39 @@ export class SocketManager {
         }
       });
 
-      // Find random game
-      socket.on("find_random_game", ({ playerName }) => {
-        // Check if player is already in a room
-        const existingRoomId = this.findRoomIdBySocket(socket.id);
-        if (existingRoomId) {
-          socket.emit("random_game_found", { roomId: existingRoomId });
-          return;
-        }
-        
-        // Try to find an available room
-        const availableRoom = Object.values(this.rooms).find(room => 
-          room.state === GameState.WAITING && room.players.length < 4
-        );
-        
-        if (availableRoom) {
-          // Join existing room
-          const player = availableRoom.addPlayer(playerName, socket.id);
-          socket.join(availableRoom.id);
+      // Join random match (enhanced version with AI fill)
+      socket.on("join_random_match", ({ playerName }, callback) => {
+        try {
+          log(`Player ${playerName} joining random match queue`, "socket");
           
-          // Notify other players
-          socket.to(availableRoom.id).emit("player_joined", player);
-          
-          // Send current room state to new player
-          socket.emit("game_state_update", availableRoom.getRoomState());
-          
-          // Notify player about the room
-          socket.emit("random_game_found", { roomId: availableRoom.id });
-          
-          log(`${playerName} joined random game: ${availableRoom.id}`, "socket");
-        } else {
-          // Check waiting list first
-          if (this.waitingForRandomMatch.length > 0) {
-            // Get waiting socket ID
-            const waitingSocketId = this.waitingForRandomMatch.shift()!;
-            const waitingSocket = this.io.sockets.sockets.get(waitingSocketId);
-            
-            if (waitingSocket) {
-              // Create new room
-              const roomId = nanoid(6).toUpperCase();
-              this.rooms[roomId] = new GameRoom(roomId);
-              
-              // Get waiting player's name from socket data
-              const waitingPlayerName = waitingSocket.data.playerName || "Player 1";
-              
-              // Add waiting player to room
-              const player1 = this.rooms[roomId].addPlayer(waitingPlayerName, waitingSocketId);
-              
-              // Add current player to room
-              const player2 = this.rooms[roomId].addPlayer(playerName, socket.id);
-              
-              // Add both sockets to room
-              waitingSocket.join(roomId);
-              socket.join(roomId);
-              
-              // Send updates to both players
-              this.io.to(roomId).emit("game_state_update", this.rooms[roomId].getRoomState());
-              
-              // Notify both players
-              waitingSocket.emit("random_game_found", { roomId });
-              socket.emit("random_game_found", { roomId });
-              
-              log(`Random match created: ${roomId} with ${waitingPlayerName} and ${playerName}`, "socket");
-            } else {
-              // If waiting socket is invalid, add current socket to waiting list
-              this.waitingForRandomMatch.push(socket.id);
-              socket.data.playerName = playerName;
-            }
-          } else {
-            // Add to waiting list
-            this.waitingForRandomMatch.push(socket.id);
-            socket.data.playerName = playerName;
-            log(`${playerName} added to random match waiting list`, "socket");
+          // Check if player is already in a room
+          const existingRoomId = this.findRoomIdBySocket(socket.id);
+          if (existingRoomId) {
+            callback({ success: true, status: "already_joined", roomId: existingRoomId });
+            return;
           }
+          
+          // Add player to random match queue
+          this.randomMatchQueue.push({ socketId: socket.id, playerName });
+          
+          // Check if we have enough players to start a game (4)
+          if (this.randomMatchQueue.length >= 4) {
+            this.createRandomMatch();
+          } else {
+            // Tell the player they're waiting
+            callback({ success: true, status: "waiting", position: this.randomMatchQueue.length });
+            
+            // After a short timeout, fill with AI players if needed
+            setTimeout(() => {
+              // If player is still in queue (hasn't been assigned to a game yet)
+              if (this.randomMatchQueue.some(p => p.socketId === socket.id)) {
+                this.fillRandomMatchWithAI();
+              }
+            }, 10000); // Wait 10 seconds before adding AI players
+          }
+        } catch (error) {
+          log(`Error joining random match: ${error}`, "socket");
+          callback({ success: false, error: "Failed to join random match" });
         }
       });
 
