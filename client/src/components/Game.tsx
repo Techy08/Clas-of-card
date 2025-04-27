@@ -29,7 +29,9 @@ const Game = () => {
     winner,
     players,
     playerHand,
-    myPlayerId
+    myPlayerId,
+    winningPlayers,
+    finishedPositions
   } = useGameStore();
   
   const { 
@@ -106,7 +108,7 @@ const Game = () => {
   return (
     <>
       <Helmet>
-        <title>Ram-Sita Adventure | Game</title>
+        <title>RamSita: Clash of Cards | Game</title>
       </Helmet>
 
       <div className="relative w-full h-screen overflow-hidden bg-gradient-to-b from-indigo-900 via-purple-800 to-pink-800">
@@ -123,7 +125,10 @@ const Game = () => {
           <div className="relative flex flex-col h-full">
             {/* Game Header */}
             <div className="flex items-center justify-between p-4 bg-background/80 backdrop-blur-sm">
-              <h1 className="text-xl font-bold">Ram-Sita Adventure</h1>
+              <div>
+                <h1 className="text-xl font-bold">RamSita: Clash of Cards</h1>
+                <p className="text-xs text-muted-foreground">Summon Legends. Command Destiny.</p>
+              </div>
               <div className="flex items-center gap-4">
                 {!isSoloMode && (
                   <Button 
@@ -206,8 +211,8 @@ const Game = () => {
             <WinnerPopup 
               winner={winner} 
               players={players}
-              winningPlayers={useGameStore(state => state.winningPlayers)}
-              finishedPositions={useGameStore(state => state.finishedPositions)}
+              winningPlayers={winningPlayers}
+              finishedPositions={finishedPositions}
               onNewGame={handleNewGame}
               onExit={handleExitGame}
             />
