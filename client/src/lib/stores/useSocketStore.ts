@@ -12,6 +12,7 @@ interface SocketState {
   initializeSocket: () => void;
   disconnectSocket: () => void;
   createRoom: (playerName: string) => Promise<string>;
+  createAIRoom: (playerName: string) => Promise<string>;
   joinRoom: (roomId: string, playerName: string) => Promise<void>;
   leaveRoom: () => void;
 }
@@ -116,6 +117,27 @@ export const useSocketStore = create<SocketState>((set, get) => ({
           resolve(response.roomId);
         } else {
           reject(new Error(response.error || "Failed to create room"));
+        }
+      });
+    });
+  },
+  
+  // Create a new room with AI players
+  createAIRoom: (playerName) => {
+    const { socket } = get();
+    
+    return new Promise((resolve, reject) => {
+      if (!socket) {
+        reject(new Error("Socket not initialized"));
+        return;
+      }
+      
+      socket.emit("create_room", { playerName, withAI: true }, (response: { success: boolean; roomId?: string; error?: string }) => {
+        if (response.success && response.roomId) {
+          set({ roomId: response.roomId });
+          resolve(response.roomId);
+        } else {
+          reject(new Error(response.error || "Failed to create AI room"));
         }
       });
     });

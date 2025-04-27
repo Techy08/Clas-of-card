@@ -22,6 +22,7 @@ const Lobby = () => {
     socket, 
     isConnected, 
     createRoom, 
+    createAIRoom,
     joinRoom
   } = useSocketStore();
 
