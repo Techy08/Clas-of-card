@@ -86,8 +86,11 @@ export const useAudio = create<AudioState>((set, get) => ({
         console.log("Background music stopped");
         
         // Remove from session storage when music is stopped
+        // Optimized version for Vercel serverless environment
         try {
-          sessionStorage.removeItem('backgroundMusicPlaying');
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.removeItem('backgroundMusicPlaying');
+          }
         } catch (error) {
           // Session storage might not be available in some contexts
           console.log("Could not access session storage:", error);
@@ -105,8 +108,11 @@ export const useAudio = create<AudioState>((set, get) => ({
           backgroundMusic.crossOrigin = "anonymous"; // Enable cross-origin audio - helps with CDN on Vercel
           
           // Set persistent flag to remember music should be playing
+          // This optimized version works better on Vercel serverless deployments
           try {
-            sessionStorage.setItem('backgroundMusicPlaying', 'true');
+            if (typeof window !== 'undefined' && window.sessionStorage) {
+              window.sessionStorage.setItem('backgroundMusicPlaying', 'true');
+            }
           } catch (error) {
             // Session storage might not be available in some contexts
             console.log("Could not access session storage:", error);

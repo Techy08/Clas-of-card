@@ -30,7 +30,10 @@ const AudioManager = ({ showControls = true }: { showControls?: boolean }) => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         try {
-          const shouldPlayMusic = sessionStorage.getItem('backgroundMusicPlaying');
+          // Optimized for Vercel serverless environment
+          const shouldPlayMusic = typeof window !== 'undefined' && window.sessionStorage 
+            ? window.sessionStorage.getItem('backgroundMusicPlaying')
+            : null;
           const { backgroundMusic, isMuted, isBackgroundMusicPlaying } = useAudio.getState();
           
           if (shouldPlayMusic === 'true' && !isMuted && backgroundMusic && !isBackgroundMusicPlaying) {
@@ -87,8 +90,12 @@ const AudioManager = ({ showControls = true }: { showControls?: boolean }) => {
         setWinSound(win);
         
         // Check if background music should be playing based on session storage
+        // Using Vercel-optimized code for serverless environment
         try {
-          const shouldPlayMusic = sessionStorage.getItem('backgroundMusicPlaying');
+          const shouldPlayMusic = typeof window !== 'undefined' && window.sessionStorage 
+            ? window.sessionStorage.getItem('backgroundMusicPlaying')
+            : null;
+            
           if (shouldPlayMusic === 'true' && !isBackgroundMusicPlaying) {
             console.log("Resuming background music from saved state");
             toggleBackgroundMusic();
