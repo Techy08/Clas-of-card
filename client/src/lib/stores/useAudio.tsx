@@ -71,7 +71,11 @@ export const useAudio = create<AudioState>((set, get) => ({
   toggleBackgroundMusic: () => {
     const { backgroundMusic, isMuted, isBackgroundMusicPlaying } = get();
     
-    if (!backgroundMusic) return;
+    // Safety check for Vercel deployment - audio might not be loaded yet
+    if (!backgroundMusic) {
+      console.log("Background music not loaded yet");
+      return;
+    }
     
     if (isBackgroundMusicPlaying) {
       try {
@@ -87,8 +91,10 @@ export const useAudio = create<AudioState>((set, get) => ({
       // Start the music if not muted
       if (!isMuted) {
         try {
+          // Ensure proper setup before playing (important for Vercel deployment)
           backgroundMusic.loop = true;
           backgroundMusic.volume = 0.3;
+          backgroundMusic.crossOrigin = "anonymous"; // Enable cross-origin audio - helps with CDN on Vercel
           
           // Create a promise with a timeout to handle audio context issues
           const playPromise = backgroundMusic.play();
@@ -100,11 +106,23 @@ export const useAudio = create<AudioState>((set, get) => ({
               })
               .catch(error => {
                 console.log("Background music play prevented:", error);
-                // Fallback for autoplay policy
-                document.addEventListener('click', function audioUnlock() {
-                  backgroundMusic.play().catch(() => {});
-                  document.removeEventListener('click', audioUnlock);
-                }, { once: true });
+                // Enhanced fallback for autoplay policy - works better on deployed environments
+                const unlockAudio = () => {
+                  // Try to play, but don't worry if it fails again
+                  backgroundMusic.play().catch(() => {
+                    console.log("Still couldn't play audio - will try on next user interaction");
+                  });
+                  
+                  // Clean up event listeners
+                  document.removeEventListener('click', unlockAudio);
+                  document.removeEventListener('touchstart', unlockAudio);
+                  document.removeEventListener('keydown', unlockAudio);
+                };
+                
+                // Add multiple event listeners for better compatibility
+                document.addEventListener('click', unlockAudio, { once: true });
+                document.addEventListener('touchstart', unlockAudio, { once: true });
+                document.addEventListener('keydown', unlockAudio, { once: true });
               });
           }
         } catch (error) {
@@ -119,23 +137,51 @@ export const useAudio = create<AudioState>((set, get) => ({
   playHit: () => {
     const { hitSound, isMuted } = get();
     if (hitSound && !isMuted) {
-      // Clone the sound to allow overlapping playback
-      const soundClone = hitSound.cloneNode() as HTMLAudioElement;
-      soundClone.volume = 0.3;
-      soundClone.play().catch(error => {
-        console.log("Hit sound play prevented:", error);
-      });
+      try {
+        // Clone the sound to allow overlapping playback
+        const soundClone = hitSound.cloneNode() as HTMLAudioElement;
+        soundClone.volume = 0.3;
+        soundClone.crossOrigin = "anonymous"; // Add cross-origin support for Vercel
+        
+        // Use safe play method with improved error handling
+        const playPromise = soundClone.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            if (error.name === 'NotAllowedError') {
+              console.log("Hit sound blocked by browser autoplay policy");
+            } else {
+              console.error("Hit sound play error:", error.message);
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error playing hit sound:", error);
+      }
     }
   },
   
   playSuccess: () => {
     const { successSound, isMuted } = get();
     if (successSound && !isMuted) {
-      successSound.currentTime = 0;
-      successSound.volume = 0.4;
-      successSound.play().catch(error => {
-        console.log("Success sound play prevented:", error);
-      });
+      try {
+        successSound.currentTime = 0;
+        successSound.volume = 0.4;
+        successSound.crossOrigin = "anonymous"; // Add cross-origin support for Vercel
+        
+        // Use safe play method with improved error handling
+        const playPromise = successSound.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            if (error.name === 'NotAllowedError') {
+              console.log("Success sound blocked by browser autoplay policy");
+            } else {
+              console.error("Success sound play error:", error.message);
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error playing success sound:", error);
+      }
     }
   },
   
@@ -145,13 +191,17 @@ export const useAudio = create<AudioState>((set, get) => ({
       try {
         const soundClone = cardFlipSound.cloneNode() as HTMLAudioElement;
         soundClone.volume = 0.2;
+        soundClone.crossOrigin = "anonymous"; // Add cross-origin support for Vercel
         
-        // Use safe play method with fallback
+        // Use safe play method with improved error handling for Vercel deployment
         const playPromise = soundClone.play();
         if (playPromise !== undefined) {
           playPromise.catch(error => {
             console.log("Card flip sound play prevented:", error);
-            // We won't add the click listener here as it's not as important as music
+            // We don't add the listener here, but in production it's still good to know what happened
+            if (process.env.NODE_ENV === 'production') {
+              console.log("This is likely due to autoplay restrictions in the browser");
+            }
           });
         }
       } catch (error) {
@@ -166,12 +216,19 @@ export const useAudio = create<AudioState>((set, get) => ({
       try {
         const soundClone = cardMoveSound.cloneNode() as HTMLAudioElement; 
         soundClone.volume = 0.25;
+        soundClone.crossOrigin = "anonymous"; // Add cross-origin support for Vercel
         
-        // Use safe play method with fallback
+        // Use safe play method with improved error handling
         const playPromise = soundClone.play();
         if (playPromise !== undefined) {
           playPromise.catch(error => {
-            console.log("Card move sound play prevented:", error);
+            if (error.name === 'NotAllowedError') {
+              // This is expected on some browsers due to autoplay policy
+              console.log("Card move sound blocked by browser autoplay policy");
+            } else {
+              // This is an unexpected error and should be logged
+              console.error("Card move sound play error:", error.message);
+            }
           });
         }
       } catch (error) {
@@ -187,17 +244,30 @@ export const useAudio = create<AudioState>((set, get) => ({
         // Win sound is important, so we'll make sure it resets properly
         winSound.currentTime = 0;
         winSound.volume = 0.5;
+        winSound.crossOrigin = "anonymous"; // Enable cross-origin audio for Vercel deployment
         
-        // Use safe play method with fallback
+        // Use safe play method with enhanced fallback for Vercel deployment
         const playPromise = winSound.play();
         if (playPromise !== undefined) {
           playPromise.catch(error => {
             console.log("Win sound play prevented:", error);
-            // For win sound, we'll add a click listener as it's important
-            document.addEventListener('click', function audioUnlock() {
-              winSound.play().catch(() => {});
-              document.removeEventListener('click', audioUnlock);
-            }, { once: true });
+            
+            // Enhanced audio unlock with multiple event types
+            const unlockWinAudio = () => {
+              winSound.play().catch(() => {
+                console.log("Still couldn't play win sound - will try again on next interaction");
+              });
+              
+              // Clean up event listeners
+              document.removeEventListener('click', unlockWinAudio);
+              document.removeEventListener('touchstart', unlockWinAudio);
+              document.removeEventListener('keydown', unlockWinAudio);
+            };
+            
+            // Add multiple event listeners for better compatibility
+            document.addEventListener('click', unlockWinAudio, { once: true });
+            document.addEventListener('touchstart', unlockWinAudio, { once: true });
+            document.addEventListener('keydown', unlockWinAudio, { once: true });
           });
         }
       } catch (error) {

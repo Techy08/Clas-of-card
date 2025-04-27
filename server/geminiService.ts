@@ -3,7 +3,25 @@ import { log } from './vite';
 import { Card, CardType, Player } from '../shared/gameTypes';
 
 // Initialize the Google Generative AI with the provided API key
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// With better error handling for Vercel deployment environment
+let genAI: GoogleGenerativeAI;
+
+try {
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    log('WARNING: GEMINI_API_KEY is not set! AI features will not work properly.', 'gemini');
+    // Initialize with empty string to prevent runtime errors, but AI features won't work
+    genAI = new GoogleGenerativeAI('');
+  } else {
+    genAI = new GoogleGenerativeAI(apiKey);
+    log('Gemini AI initialized successfully', 'gemini');
+  }
+} catch (error) {
+  log(`Error initializing Gemini API: ${error}`, 'gemini');
+  // Initialize with empty string as fallback
+  genAI = new GoogleGenerativeAI('');
+}
 
 // Configure safety settings for Gemini
 const safetySettings = [
@@ -34,6 +52,12 @@ export async function getCardPlayingStrategy(
   roundNumber: number
 ): Promise<string> {
   try {
+    // Check if API key is available
+    if (!process.env.GEMINI_API_KEY) {
+      log('Cannot generate card strategy: GEMINI_API_KEY not set', 'gemini');
+      throw new Error('API key not available');
+    }
+    
     // Create a model instance
     const model = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash',
@@ -51,7 +75,7 @@ export async function getCardPlayingStrategy(
 
     // Prepare the prompt for Gemini
     const prompt = `
-    As a strategic advisor for the Ram-Sita Adventure card game, analyze this hand and give brief advice (max 2 sentences).
+    As a strategic advisor for the RamSita: Clash of Cards game, analyze this hand and give brief advice (max 2 sentences).
 
     Game Context:
     - Round ${roundNumber}
@@ -71,16 +95,34 @@ export async function getCardPlayingStrategy(
     Which cards should I keep and which should I pass? Keep your advice simple, strategic, and friendly.
     `;
 
-    // Generate content
-    const result = await model.generateContent(prompt);
-    const response = result.response.text();
+    // Using Promise.race with a timeout to handle potential Vercel function timeout issues
+    const timeoutPromise = new Promise<string>((_, reject) => {
+      setTimeout(() => reject(new Error('Gemini API request timed out')), 4500); // 4.5s timeout (Vercel functions have 10s limit)
+    });
+    
+    // Generate content with timeout protection
+    const resultPromise = model.generateContent(prompt)
+      .then(result => result.response.text());
+      
+    // Race the API call against the timeout
+    const response = await Promise.race([resultPromise, timeoutPromise]) as string;
     
     log(`Generated strategy advice for player ${playerId}: ${response}`, 'gemini');
     
     return response;
   } catch (error) {
     log(`Error generating card strategy: ${error}`, 'gemini');
-    return "Focus on collecting matching cards to complete a winning set.";
+    
+    // Provide more strategic fallback responses based on the error
+    const fallbackResponses = [
+      "Focus on collecting matching cards to complete a winning set.",
+      "Consider which cards your opponents might be collecting.",
+      "If you have 2 or more of the same card type, keep collecting them.",
+      "Ram Chaal plus 3 Ram cards is a powerful winning combination to aim for."
+    ];
+    
+    // Return a random fallback response
+    return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
   }
 }
 
