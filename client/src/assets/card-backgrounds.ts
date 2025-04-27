@@ -18,22 +18,22 @@ export const getCardColor = (cardType: CardType) => {
       Ram: {
         background: "bg-amber-500",
         textColor: "text-amber-950",
-        border: "border-2 border-amber-600",
+        border: "",
       },
       Sita: {
         background: "bg-emerald-500",
         textColor: "text-emerald-950",
-        border: "border-2 border-emerald-600",
+        border: "",
       },
       Lakshman: {
         background: "bg-blue-500",
         textColor: "text-blue-950",
-        border: "border-2 border-blue-600",
+        border: "",
       },
       Ravan: {
         background: "bg-red-500",
         textColor: "text-red-950",
-        border: "border-2 border-red-600",
+        border: "",
       },
     },
     // Dark theme color set
@@ -41,22 +41,22 @@ export const getCardColor = (cardType: CardType) => {
       Ram: {
         background: "bg-amber-700",
         textColor: "text-amber-100",
-        border: "border-2 border-amber-500",
+        border: "",
       },
       Sita: {
         background: "bg-emerald-700",
         textColor: "text-emerald-100",
-        border: "border-2 border-emerald-500",
+        border: "",
       },
       Lakshman: {
         background: "bg-blue-700",
         textColor: "text-blue-100",
-        border: "border-2 border-blue-500",
+        border: "",
       },
       Ravan: {
         background: "bg-red-700",
         textColor: "text-red-100",
-        border: "border-2 border-red-500",
+        border: "",
       },
     },
   ];

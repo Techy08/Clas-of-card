@@ -3,7 +3,7 @@ import { getBestCardToPass } from "./cardUtils";
 import { CardType, Player } from "./types";
 
 // AI player names
-const AI_NAMES = ["R.9", "R.O", "P10"];
+const AI_NAMES = ["R.1", "P10", "R.0"];
 
 // Create AI players
 export const createAiPlayers = (count: number): Player[] => {
