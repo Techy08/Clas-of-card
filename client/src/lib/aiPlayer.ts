@@ -78,9 +78,21 @@ const executeAIMove = (aiPlayer: Player) => {
   const gameStore = useGameStore.getState();
   const { players, round, roundStartPlayerId } = gameStore;
   
-  // Get the next player ID
+  // Get the next player ID (following clockwise order and skipping winners)
   const currentPlayerIndex = players.findIndex(p => p.id === aiPlayer.id);
-  const nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
+  let nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
+  
+  // Skip players who have already won (have a winningSet)
+  while (players[nextPlayerIndex].winningSet !== null) {
+    nextPlayerIndex = (nextPlayerIndex + 1) % players.length;
+    
+    // Safety check to prevent infinite loop if all players have won
+    if (nextPlayerIndex === currentPlayerIndex) {
+      console.log("All other players have won, no valid target to pass card to");
+      return;
+    }
+  }
+  
   const nextPlayerId = players[nextPlayerIndex].id;
   
   // Select best card to pass

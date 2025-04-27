@@ -113,7 +113,7 @@ export class GameRoom {
     return { players, startPlayerId };
   }
   
-  // Handle card passing
+  // Handle card passing according to game rules
   passCard(fromPlayerId: number, cardId: number, toPlayerId: number): void {
     // Find players
     const fromPlayer = this.players.find(p => p.id === fromPlayerId);
@@ -121,6 +121,25 @@ export class GameRoom {
     
     if (!fromPlayer || !toPlayer) {
       throw new Error("Invalid player IDs");
+    }
+
+    // Validate player turn
+    if (this.currentTurn !== fromPlayerId) {
+      throw new Error("Not this player's turn");
+    }
+    
+    // Verify passing to the next player (clockwise)
+    const playerCount = this.players.length;
+    const fromIndex = this.players.findIndex(p => p.id === fromPlayerId);
+    const expectedToIndex = (fromIndex + 1) % playerCount;
+    const actualToIndex = this.players.findIndex(p => p.id === toPlayerId);
+    
+    // Skip players who already won
+    if (actualToIndex !== expectedToIndex) {
+      const expectedPlayer = this.players[expectedToIndex];
+      if (!this.winningPlayers.includes(expectedPlayer)) {
+        throw new Error("Must pass card to the next player in clockwise order");
+      }
     }
     
     // Find card
@@ -144,7 +163,7 @@ export class GameRoom {
       this.round += 1;
     }
     
-    // Check for winner
+    // Check for winner after each card pass
     this.checkForWinner();
   }
   

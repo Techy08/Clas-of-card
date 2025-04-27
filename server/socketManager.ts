@@ -703,9 +703,20 @@ export class SocketManager {
           cardToPass = aiHand[0];
         }
         
-        // Find the next player to pass to
+        // Find the next player to pass to (accounting for players who already won)
         const currentPlayerIndex = room.players.findIndex(p => p.id === aiPlayerId);
-        const nextPlayerIndex = (currentPlayerIndex + 1) % room.players.length;
+        let nextPlayerIndex = (currentPlayerIndex + 1) % room.players.length;
+        
+        // Skip players who have already won
+        while (room.winningPlayers.includes(room.players[nextPlayerIndex])) {
+          nextPlayerIndex = (nextPlayerIndex + 1) % room.players.length;
+          
+          // Safety check to prevent infinite loop if all other players have won
+          if (nextPlayerIndex === currentPlayerIndex) {
+            break;
+          }
+        }
+        
         nextPlayerId = room.players[nextPlayerIndex].id;
         
         // Pass the selected card
