@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import Card from "./Card";
 import { Player as PlayerType } from "@/lib/types";
 import { useGameStore } from "@/lib/stores/useGameStore";
+import { useAudio } from "@/lib/stores/useAudio";
 
 interface PlayerHandProps {
   player: PlayerType;
@@ -20,6 +21,7 @@ const PlayerHand = ({
   selectedCard,
 }: PlayerHandProps) => {
   const { myPlayerId } = useGameStore();
+  const { playCardFlip } = useAudio();
   
   // Only show cards for current player, otherwise show card backs
   const showCards = isCurrentPlayer;
@@ -69,6 +71,7 @@ const PlayerHand = ({
               isHidden={!showCards}
               onClick={() => {
                 if (isCurrentPlayer && isCurrentTurn) {
+                  playCardFlip(); // Play card flip sound
                   onSelectCard?.(card.id);
                 }
               }}

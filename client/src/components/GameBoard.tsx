@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import PlayerHand from "./PlayerHand";
 import { useGameStore } from "@/lib/stores/useGameStore";
 import { useSocketStore } from "@/lib/stores/useSocketStore";
+import { useAudio } from "@/lib/stores/useAudio";
 import { Button } from "./ui/button";
 import { Player } from "@/lib/types";
 import { getRandomBackground } from "@/assets/card-backgrounds";
@@ -24,6 +25,7 @@ const GameBoard = () => {
   } = useGameStore();
   
   const { socket, isConnected } = useSocketStore();
+  const { playCardMove, playSuccess, playWinSound } = useAudio();
   const [background, setBackground] = useState("");
   const [animatingCard, setAnimatingCard] = useState<number | null>(null);
   const [cardPositions, setCardPositions] = useState<{ [key: string]: { top: number, left: number } }>({});
@@ -82,6 +84,9 @@ const GameBoard = () => {
     
     // Calculate next player index
     const nextPlayerIndex = (currentTurn + 1) % players.length;
+    
+    // Play card move sound
+    playCardMove();
     
     // Get card positions for animation
     const fromPos = document.getElementById(`player-${myPlayerId}`)?.getBoundingClientRect();
