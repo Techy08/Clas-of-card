@@ -13,7 +13,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
   
-  // Initialize socket manager
+  // Initialize socket manager with improved connection handling
   const io = new SocketManager(httpServer);
   
   // API Routes - all prefixed with /api

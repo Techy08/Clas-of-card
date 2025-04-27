@@ -27,8 +27,22 @@ export class SocketManager {
   private playerSocketMap: Map<string, string> = new Map(); // Maps player socket ID to room ID
   private randomMatchQueue: Array<{socketId: string, playerName: string}> = []; // Queue for random matchmaking
 
-  constructor(io: Server) {
-    this.io = io;
+  constructor(httpServer: any) {
+    // Create the Socket.IO server with improved settings
+    this.io = new Server(httpServer, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      },
+      // Enable better reconnection handling
+      connectionStateRecovery: {
+        // the backup duration of the sessions and the packets
+        maxDisconnectionDuration: 2 * 60 * 1000,
+        // whether to skip middlewares upon successful recovery
+        skipMiddlewares: true,
+      }
+    });
+    
     this.initialize();
   }
 
@@ -45,7 +59,9 @@ export class SocketManager {
     }
     
     this.io.on("connection", (socket: Socket) => {
-      log(`Client connected: ${socket.id}`, "socket");
+      // Ensure socket.id is available and log it
+      const socketId = socket.id || 'unknown-id';
+      log(`Client connected: ${socketId}`, "socket");
 
       // Create a new room
       socket.on("create_room", ({ playerName, withAI = false }, callback) => {
