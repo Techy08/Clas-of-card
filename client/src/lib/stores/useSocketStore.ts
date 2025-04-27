@@ -82,8 +82,6 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       
       // Timing parameters
       timeout: 30000,                     // Longer timeout for serverless cold starts
-      pingTimeout: 30000,                 // Longer ping timeout 
-      pingInterval: 25000,                // Reduced ping frequency to minimize connections
       
       // Connection management
       forceNew: false,                    // Don't force a new connection unless needed

@@ -116,11 +116,39 @@ This project includes custom build scripts to simplify the Vercel deployment pro
    - `NODE_ENV`: Set to `production`
 6. Complete the deployment process
 
-### 4. Verify Deployment
+### 4. Verify and Monitor Deployment
+
+#### Initial Verification
 
 1. After deployment completes, Vercel will provide you with a URL (e.g., https://ramsita-clash-of-cards.vercel.app)
 2. Visit the URL to verify that your application is working properly
 3. Test the multiplayer functionality by opening the game in multiple browser tabs
+
+#### Using the Monitoring Tool
+
+This project includes a built-in monitoring tool to help you verify your deployment health:
+
+```bash
+# Basic health check
+node monitor-vercel.js https://your-vercel-url.vercel.app
+
+# Comprehensive check including WebSocket tests
+node monitor-vercel.js https://your-vercel-url.vercel.app --full
+```
+
+The monitoring tool will check:
+- Frontend HTML delivery
+- Static assets loading
+- API endpoint responses
+- WebSocket connectivity (with --full flag)
+- Response times and sizes
+- DNS resolution
+
+You can use this tool for:
+- Initial deployment verification
+- Ongoing health monitoring
+- Troubleshooting connection issues
+- Performance assessment
 
 ## Troubleshooting
 
@@ -145,9 +173,47 @@ If you experience issues with Socket.IO connections:
 1. Check the browser console for connection errors
 2. Verify that the Socket.IO path is correctly set to "/socket.io/"
 3. Make sure CORS settings are allowing your client domain
-4. If using WebSocket transport, ensure your Vercel project has WebSockets enabled
-5. Try switching to polling transport by modifying the client socket connection options
+4. If using WebSocket transport, ensure your Vercel project has WebSockets enabled:
+   ```
+   // In vercel.json
+   {
+     "functions": {
+       "server/index.ts": {
+         "memory": 512,
+         "maxDuration": 30
+       }
+     }
+   }
+   ```
+5. Try switching to polling transport by modifying the client socket connection options:
+   ```typescript
+   const socket = io(getServerUrl(), {
+     transports: ["polling"], // Force polling only
+     // other options...
+   });
+   ```
 6. Serverless Socket.IO can experience cold start delays - the first connection might take longer
+7. In Vercel, make sure your serverless function timeout is long enough:
+   ```
+   // In vercel.json
+   {
+     "functions": {
+       "server/index.ts": {
+         "maxDuration": 30 // 30 seconds timeout
+       }
+     }
+   }
+   ```
+8. If using custom domains, make sure your Socket.IO client is connecting to the same domain:
+   ```typescript
+   // Always connect to current origin in production
+   const getServerUrl = () => {
+     if (window.location.hostname === 'localhost') {
+       return ''; // Local development
+     }
+     return window.location.origin; // Same domain in production
+   };
+   ```
 
 ### Database Connection Issues
 
