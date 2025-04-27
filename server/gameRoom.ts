@@ -30,6 +30,24 @@ export class GameRoom {
       socketId,
       hand: [],
       winningSet: null,
+      isAI: false,
+    };
+    
+    this.players.push(player);
+    
+    return player;
+  }
+  
+  // Add AI player to the room
+  addAIPlayer(name: string): Player {
+    const playerId = this.players.length;
+    
+    const player: Player = {
+      id: playerId,
+      name,
+      hand: [],
+      winningSet: null,
+      isAI: true,
     };
     
     this.players.push(player);

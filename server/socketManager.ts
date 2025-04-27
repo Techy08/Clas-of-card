@@ -1,8 +1,15 @@
 import { Server, Socket } from "socket.io";
 import { nanoid } from "nanoid";
 import { GameRoom } from "./gameRoom";
-import { GameState } from "../shared/gameTypes";
+import { GameState, Player } from "../shared/gameTypes";
 import { log } from "./vite";
+import { 
+  getCardPlayingStrategy, 
+  generateAIDialogue, 
+  generateGameTipOrFact,
+  getAIPlayerNameSuggestions,
+  generateGameResultCommentary
+} from "./geminiService";
 
 interface GameRooms {
   [key: string]: GameRoom;
@@ -29,7 +36,7 @@ export class SocketManager {
       log(`Client connected: ${socket.id}`, "socket");
 
       // Create a new room
-      socket.on("create_room", ({ playerName }, callback) => {
+      socket.on("create_room", ({ playerName, withAI = false }, callback) => {
         try {
           const roomId = nanoid(6).toUpperCase();
           this.rooms[roomId] = new GameRoom(roomId);
@@ -37,7 +44,32 @@ export class SocketManager {
           const player = this.rooms[roomId].addPlayer(playerName, socket.id);
           socket.join(roomId);
           
-          log(`Room created: ${roomId} by ${playerName}`, "socket");
+          // If AI players are requested, add them
+          if (withAI) {
+            // Add 3 AI players with default names for now (will be updated with Gemini later)
+            this.rooms[roomId].addAIPlayer("R.9");
+            this.rooms[roomId].addAIPlayer("R.O");
+            this.rooms[roomId].addAIPlayer("P10");
+            
+            // Update AI names using Gemini in the background
+            getAIPlayerNameSuggestions(3).then(names => {
+              if (this.rooms[roomId]) {
+                const aiPlayers = this.rooms[roomId].players.filter(p => p.isAI);
+                
+                // Update AI player names
+                for (let i = 0; i < Math.min(aiPlayers.length, names.length); i++) {
+                  aiPlayers[i].name = names[i];
+                }
+                
+                // Send updated state to the player
+                this.io.to(roomId).emit("game_state_update", this.rooms[roomId].getRoomState());
+              }
+            }).catch(err => {
+              log(`Error getting AI player names: ${err}`, "socket");
+            });
+          }
+          
+          log(`Room created: ${roomId} by ${playerName} ${withAI ? 'with AI players' : ''}`, "socket");
           callback({ success: true, roomId });
         } catch (error) {
           log(`Error creating room: ${error}`, "socket");
@@ -278,6 +310,78 @@ export class SocketManager {
     });
   }
 
+  // Record game result in database
+  private async recordGameResult(roomId: string): Promise<void> {
+    if (!this.rooms[roomId] || !this.rooms[roomId].winner) {
+      return;
+    }
+
+    try {
+      const { db, recordGameHistory, completeGameHistory, recordGameParticipant, updatePlayerStats } = await import('./db');
+      
+      const room = this.rooms[roomId];
+      const players = room.players;
+      const winner = room.winner;
+      
+      // Record basic game history
+      const gameRecord = await recordGameHistory(
+        roomId,
+        players.length,
+        winner?.socketId ? winner.id : undefined // Only record real users, not AI
+      );
+      
+      if (!gameRecord) {
+        log(`Failed to record game history for room ${roomId}`, 'socket');
+        return;
+      }
+      
+      // Sort players by winning status (winner first, then others)
+      const sortedPlayers = [...players].sort((a, b) => {
+        if (a.id === winner?.id) return -1;
+        if (b.id === winner?.id) return 1;
+        return 0;
+      });
+      
+      // Record each participant and update their stats
+      for (let i = 0; i < sortedPlayers.length; i++) {
+        const player = sortedPlayers[i];
+        const position = i + 1; // Position 1 = 1st place (winner)
+        const isWinner = player.id === winner?.id;
+        
+        // Only update stats for real players (those with socketId)
+        if (player.socketId) {
+          // Record this player's participation
+          await recordGameParticipant(
+            gameRecord.id,
+            player.id,
+            position,
+            false // Not AI
+          );
+          
+          // Update player stats (skip for now as we don't have user IDs yet)
+          // In a real implementation, you'd associate socketId with user accounts
+        }
+        // Record AI players too
+        else if (player.isAI) {
+          await recordGameParticipant(
+            gameRecord.id,
+            null, // No user ID for AI
+            position,
+            true, // Is AI
+            player.name
+          );
+        }
+      }
+      
+      // Mark game as completed
+      await completeGameHistory(roomId, winner?.socketId ? winner.id : undefined);
+      
+      log(`Game results recorded for room ${roomId}`, 'socket');
+    } catch (error) {
+      log(`Error recording game results: ${error}`, 'socket');
+    }
+  }
+
   // Find room ID by socket ID
   private findRoomIdBySocket(socketId: string): string | null {
     for (const roomId in this.rooms) {
@@ -287,5 +391,111 @@ export class SocketManager {
       }
     }
     return null;
+  }
+  
+  // Handle AI turn logic with more advanced decision making
+  private handleAITurn(roomId: string, aiPlayerId: number): void {
+    if (!this.rooms[roomId]) return;
+    
+    const room = this.rooms[roomId];
+    const aiPlayer = room.players.find(p => p.id === aiPlayerId);
+    
+    if (!aiPlayer || !aiPlayer.isAI) return;
+    
+    // Introduce a delay to make AI seem more human-like
+    setTimeout(() => {
+      try {
+        if (!this.rooms[roomId]) return; // Room may have been deleted during timeout
+        
+        // Get the AI player's hand
+        const aiHand = aiPlayer.hand;
+        
+        if (aiHand.length === 0) return;
+        
+        // Check for any potential winning cards that could help complete a set
+        const cardCounts = {
+          Ram: aiHand.filter(c => c.type === 'Ram' && !c.isRamChaal).length,
+          Sita: aiHand.filter(c => c.type === 'Sita').length,
+          Lakshman: aiHand.filter(c => c.type === 'Lakshman').length,
+          Ravan: aiHand.filter(c => c.type === 'Ravan').length,
+        };
+        
+        const hasRamChaal = aiHand.some(c => c.isRamChaal);
+        
+        // Determine best card to keep based on potential winning combinations
+        let cardToPass: any;
+        
+        // Strategy logic
+        if (hasRamChaal && cardCounts.Ram >= 2) {
+          // If we have Ram Chaal and at least 2 Ram cards, we're close to a winning set
+          // Pass a non-Ram card
+          cardToPass = aiHand.find(c => c.type !== 'Ram');
+        } else if (cardCounts.Sita >= 3) {
+          // If we have 3 Sita cards, keep them and pass something else
+          cardToPass = aiHand.find(c => c.type !== 'Sita');
+        } else if (cardCounts.Lakshman >= 3) {
+          // If we have 3 Lakshman cards, keep them and pass something else
+          cardToPass = aiHand.find(c => c.type !== 'Lakshman');
+        } else if (cardCounts.Ravan >= 3) {
+          // If we have 3 Ravan cards, keep them and pass something else
+          cardToPass = aiHand.find(c => c.type !== 'Ravan');
+        } else {
+          // Otherwise, find the card type with the minimum count and pass one of those
+          let minType = 'Ram';
+          let minCount = cardCounts.Ram;
+          
+          if (cardCounts.Sita < minCount) {
+            minType = 'Sita';
+            minCount = cardCounts.Sita;
+          }
+          
+          if (cardCounts.Lakshman < minCount) {
+            minType = 'Lakshman';
+            minCount = cardCounts.Lakshman;
+          }
+          
+          if (cardCounts.Ravan < minCount) {
+            minType = 'Ravan';
+            minCount = cardCounts.Ravan;
+          }
+          
+          // Never pass Ram Chaal card
+          cardToPass = aiHand.find(c => c.type === minType && !c.isRamChaal);
+        }
+        
+        // If no strategic card was found, just pick the first non-Ram Chaal card
+        if (!cardToPass) {
+          cardToPass = aiHand.find(c => !c.isRamChaal);
+        }
+        
+        // If still no card found (very unlikely), pick the first card
+        if (!cardToPass) {
+          cardToPass = aiHand[0];
+        }
+        
+        // Find the next player to pass to
+        const currentPlayerIndex = room.players.findIndex(p => p.id === aiPlayerId);
+        const nextPlayerIndex = (currentPlayerIndex + 1) % room.players.length;
+        const nextPlayerId = room.players[nextPlayerIndex].id;
+        
+        // Pass the card
+        room.passCard(aiPlayerId, cardToPass.id, nextPlayerId);
+        
+        // Update all clients
+        this.io.to(roomId).emit("game_state_update", room.getRoomState());
+        
+        // Check for winner
+        if (room.winner) {
+          this.io.to(roomId).emit("game_ended", room.winner);
+          
+          // Record game results in database
+          this.recordGameResult(roomId);
+        }
+        
+        log(`AI player ${aiPlayer.name} passed card ${cardToPass.type} to player ${nextPlayerId}`, 'socket');
+      } catch (error) {
+        log(`Error in AI turn: ${error}`, 'socket');
+      }
+    }, 1000 + Math.random() * 2000); // Random delay between 1-3 seconds
   }
 }
