@@ -54,4 +54,6 @@ export interface GameStateUpdate {
   state: GameState;
   round: number;
   winner: Player | null;
+  winningPlayers?: Player[];  // All players who have won in order (1st, 2nd, 3rd)
+  finishedPositions?: number[]; // Positions that have been determined
 }

@@ -11,13 +11,73 @@ interface WinnerPopupProps {
   players: Player[];
   onNewGame: () => void;
   onExit: () => void;
+  winningPlayers?: Player[]; // List of players in order of winning (1st, 2nd, 3rd)
 }
 
-const WinnerPopup = ({ winner, players, onNewGame, onExit }: WinnerPopupProps) => {
+const WinnerPopup = ({ winner, players, onNewGame, onExit, winningPlayers = [] }: WinnerPopupProps) => {
   const [showRewards, setShowRewards] = useState(false);
+  
+  // Sort players by position
+  const sortedPlayers = [...players].sort((a, b) => {
+    // If player has position property, sort by it
+    if (a.position && b.position) {
+      return a.position - b.position;
+    }
+    // Otherwise fall back to old logic (winner first)
+    if (a.id === winner?.id) return -1;
+    if (b.id === winner?.id) return 1;
+    return 0;
+  });
   
   const handleViewRewards = () => {
     setShowRewards(true);
+  };
+  
+  // Get position label
+  const getPositionLabel = (player: Player) => {
+    if (!player.position) return player.id === winner?.id ? "Winner" : "Lost";
+    
+    switch (player.position) {
+      case 1: return "1st Place";
+      case 2: return "2nd Place";
+      case 3: return "3rd Place";
+      case 4: return "4th Place";
+      default: return "Lost";
+    }
+  };
+  
+  // Get position style
+  const getPositionStyle = (player: Player) => {
+    if (!player.position) {
+      return player.id === winner?.id 
+        ? "bg-amber-500 text-white" 
+        : "bg-gray-500 text-white";
+    }
+    
+    switch (player.position) {
+      case 1: return "bg-amber-500 text-white"; // Gold
+      case 2: return "bg-gray-300 text-gray-800"; // Silver
+      case 3: return "bg-amber-700 text-white"; // Bronze
+      case 4: return "bg-red-500 text-white"; // Loser (red)
+      default: return "bg-gray-500 text-white";
+    }
+  };
+  
+  // Get card container style
+  const getContainerStyle = (player: Player) => {
+    if (!player.position) {
+      return player.id === winner?.id 
+        ? "bg-amber-100 dark:bg-amber-950/30 border-2 border-amber-500"
+        : "bg-muted/50 border border-border";
+    }
+    
+    switch (player.position) {
+      case 1: return "bg-amber-100 dark:bg-amber-950/30 border-2 border-amber-500"; // Gold
+      case 2: return "bg-gray-100 dark:bg-gray-800/50 border-2 border-gray-300"; // Silver
+      case 3: return "bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-700"; // Bronze
+      case 4: return "bg-red-50 dark:bg-red-950/20 border-2 border-red-500"; // Loser
+      default: return "bg-muted/50 border border-border";
+    }
   };
   
   return (
@@ -36,17 +96,24 @@ const WinnerPopup = ({ winner, players, onNewGame, onExit }: WinnerPopupProps) =
         <div className="text-center mb-6">
           <h2 className="text-3xl font-bold mb-2">Game Over!</h2>
           {winner ? (
-            <p className="text-xl">
-              <span className="font-semibold text-primary">{winner.name}</span> wins!
-            </p>
+            <div>
+              <p className="text-xl mb-2">
+                <span className="font-semibold text-primary">{winner.name}</span> wins first place!
+              </p>
+              <p className="text-sm text-muted-foreground">
+                In this game, the first three players to complete a winning set are winners, while the last player loses.
+              </p>
+            </div>
           ) : (
-            <p className="text-xl">It's a tie!</p>
+            <p className="text-xl">The game has ended!</p>
           )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-          {players.map((player) => {
-            const isWinner = player.id === winner?.id;
+          {sortedPlayers.map((player) => {
+            const positionLabel = getPositionLabel(player);
+            const positionStyle = getPositionStyle(player);
+            const containerStyle = getContainerStyle(player);
             const winningSet = player.winningSet;
             
             return (
@@ -54,22 +121,14 @@ const WinnerPopup = ({ winner, players, onNewGame, onExit }: WinnerPopupProps) =
                 key={player.id}
                 className={cn(
                   "p-4 rounded-lg transition-all",
-                  isWinner
-                    ? "bg-amber-100 dark:bg-amber-950/30 border-2 border-amber-500"
-                    : "bg-muted/50 border border-border"
+                  containerStyle
                 )}
               >
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">{player.name}</h3>
-                  {isWinner ? (
-                    <span className="px-2 py-1 bg-amber-500 text-white text-xs rounded-full font-semibold">
-                      Winner
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 bg-gray-500 text-white text-xs rounded-full">
-                      Lost
-                    </span>
-                  )}
+                  <span className={cn("px-2 py-1 text-xs rounded-full font-semibold", positionStyle)}>
+                    {positionLabel}
+                  </span>
                 </div>
 
                 <div className="flex justify-center gap-1 flex-wrap">
@@ -88,7 +147,7 @@ const WinnerPopup = ({ winner, players, onNewGame, onExit }: WinnerPopupProps) =
                   ))}
                 </div>
                 
-                {isWinner && winningSet && (
+                {player.winningSet && (
                   <div className="mt-3 text-center text-sm text-muted-foreground">
                     {player.hand.some(c => c.isRamChaal) && player.hand.filter(c => c.type === "Ram").length >= 3
                       ? "Ram Chaal + 3 Ram Cards"

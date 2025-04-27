@@ -214,6 +214,8 @@ export class GameRoom {
       state: this.state,
       round: this.round,
       winner: this.winner,
+      winningPlayers: this.winningPlayers,
+      finishedPositions: this.finishedPositions
     };
   }
   
