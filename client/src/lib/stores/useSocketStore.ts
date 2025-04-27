@@ -29,23 +29,64 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       return;
     }
     
-    // Create socket connection
+    // Create socket connection with better reconnection settings
     const socket = io("", {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"], // Fallback to polling if websocket fails
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000, // Increased connection timeout
     });
     
     // Set up event listeners
     socket.on("connect", () => {
       console.log("Socket connected");
       set({ isConnected: true });
+      
+      // If we were in a room before disconnection, try to rejoin
+      const { roomId } = get();
+      const storedName = localStorage.getItem("playerName") || "Player";
+      
+      if (roomId) {
+        console.log("Attempting to reconnect to room:", roomId);
+        socket.emit("rejoin_room", { roomId, playerName: storedName }, (response: { success: boolean }) => {
+          if (!response.success) {
+            // If rejoin fails, clear the roomId
+            set({ roomId: null });
+          }
+        });
+      }
     });
     
     socket.on("disconnect", () => {
       console.log("Socket disconnected");
       set({ isConnected: false });
+    });
+    
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+    });
+    
+    socket.on("error", (error) => {
+      console.error("Socket error:", error);
+    });
+    
+    socket.io.on("reconnect", (attempt) => {
+      console.log(`Socket reconnected after ${attempt} attempts`);
+    });
+    
+    socket.io.on("reconnect_attempt", (attempt) => {
+      console.log(`Socket reconnection attempt: ${attempt}`);
+    });
+    
+    socket.io.on("reconnect_error", (error) => {
+      console.error("Socket reconnection error:", error);
+    });
+    
+    socket.io.on("reconnect_failed", () => {
+      console.error("Socket reconnection failed");
     });
     
     // Game events

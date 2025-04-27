@@ -104,6 +104,57 @@ export class SocketManager {
         }
       });
 
+      // Rejoin room (handle reconnections)
+      socket.on("rejoin_room", ({ roomId, playerName }, callback) => {
+        try {
+          // Check if room exists
+          if (!this.rooms[roomId]) {
+            callback({ success: false, error: "Room not found" });
+            return;
+          }
+          
+          // Find if player was already in the room
+          const existingPlayerIndex = this.rooms[roomId].players.findIndex(p => 
+            p.name === playerName && (!p.socketId || p.socketId === socket.id)
+          );
+          
+          if (existingPlayerIndex >= 0) {
+            // Update player's socket ID
+            this.rooms[roomId].players[existingPlayerIndex].socketId = socket.id;
+            
+            // Join the socket to the room
+            socket.join(roomId);
+            
+            // Map socket ID to room ID
+            this.playerSocketMap.set(socket.id, roomId);
+            
+            // Send current game state to the player
+            socket.emit("game_state_update", this.rooms[roomId].getRoomState());
+            
+            log(`Player ${playerName} rejoined room ${roomId}`, "socket");
+            callback({ success: true });
+          } else {
+            // If player was not found and room has space, add as a new player
+            if (this.rooms[roomId].players.length < 4) {
+              const player = this.rooms[roomId].addPlayer(playerName, socket.id);
+              socket.join(roomId);
+              
+              this.playerSocketMap.set(socket.id, roomId);
+              socket.to(roomId).emit("player_joined", player);
+              socket.emit("game_state_update", this.rooms[roomId].getRoomState());
+              
+              log(`Player ${playerName} joined room ${roomId} as new player after failed rejoin attempt`, "socket");
+              callback({ success: true });
+            } else {
+              callback({ success: false, error: "Room is full" });
+            }
+          }
+        } catch (error) {
+          log(`Error rejoining room: ${error}`, "socket");
+          callback({ success: false, error: "Failed to rejoin room" });
+        }
+      });
+      
       // Leave room
       socket.on("leave_room", ({ roomId }) => {
         if (this.rooms[roomId]) {
