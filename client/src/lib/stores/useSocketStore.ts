@@ -43,35 +43,63 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       }
     }
     
-    // Get the server URL for Vercel deployment
+    // Get the server URL based on environment
     const getServerUrl = () => {
       // For local development
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return "";
+        return ""; // Empty string means connect to same host and port as page
       }
       
-      // For Vercel production deployment
+      // For production deployment on Vercel
       return window.location.origin;
     };
     
-    // Create socket connection with enhanced settings optimized for Vercel's serverless environment
+    // Generate a persistent client ID that survives page reloads
+    const getClientId = () => {
+      let clientId = localStorage.getItem('clientId');
+      if (!clientId) {
+        clientId = `client-${Math.random().toString(36).substring(2, 10)}-${Date.now()}`;
+        localStorage.setItem('clientId', clientId);
+      }
+      return clientId;
+    };
+    
+    // Create socket connection with enhanced settings optimized for Vercel serverless environment
     const socket = io(getServerUrl(), {
       path: "/socket.io/",
-      transports: ["websocket", "polling"], // Try websocket first, fallback to polling
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: 30,        // More attempts for serverless cold starts
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 8000,      // Higher max delay for serverless environment
-      timeout: 20000,                  // Reduced timeout to fail faster if server is down
-      forceNew: true,                  // Always create a new connection
-      extraHeaders: {                  // Add headers to help with Vercel deployment
-        "Cache-Control": "no-cache",
+      // Transport configuration
+      transports: ["websocket", "polling"], // Try WebSocket first, fallback to polling
+      upgrade: true,                      // Allow transport upgrades
+      rememberUpgrade: true,              // Remember if WebSocket works to avoid polling
+      
+      // Connection behavior
+      autoConnect: true,                  // Connect automatically
+      reconnection: true,                 // Enable reconnection
+      reconnectionAttempts: 50,           // More attempts for serverless cold starts
+      reconnectionDelay: 1000,            // Start with 1s delay
+      reconnectionDelayMax: 10000,        // Max 10s between retries (serverless cold starts)
+      randomizationFactor: 0.75,          // Higher randomization to avoid connection stampedes
+      
+      // Timing parameters
+      timeout: 30000,                     // Longer timeout for serverless cold starts
+      pingTimeout: 30000,                 // Longer ping timeout 
+      pingInterval: 25000,                // Reduced ping frequency to minimize connections
+      
+      // Connection management
+      forceNew: false,                    // Don't force a new connection unless needed
+      multiplex: true,                    // Share connection if connecting to same endpoint
+      
+      // Headers and authorization
+      extraHeaders: {
+        "Cache-Control": "no-cache",      // Prevent caching socket.io requests
+        "X-Client-Version": "1.0.0",      // Add version header for debugging
       },
-      randomizationFactor: 0.5,        // Higher randomization to avoid connection stampedes
-      auth: {                          // Add basic auth data in case we need it for reconnection
-        clientId: `client-${Math.random().toString(36).substring(2, 10)}`,
-        timestamp: Date.now()
+      
+      // Session management
+      auth: {
+        clientId: getClientId(),          // Send persistent client ID
+        timestamp: Date.now(),            // Add timestamp for request tracking
+        reconnect: !!get().roomId         // Flag if this is a reconnection attempt
       }
     });
     

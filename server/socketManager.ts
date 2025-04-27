@@ -28,24 +28,21 @@ export class SocketManager {
   private randomMatchQueue: Array<{socketId: string, playerName: string}> = []; // Queue for random matchmaking
 
   constructor(httpServer: any) {
+    // Define CORS origins for production
+    const productionOrigins = [
+      // Main production URLs
+      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '',
+      process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL}` : '',
+      // Custom domain
+      "https://ramsita-clash-of-cards.vercel.app",
+    ].filter(Boolean); // Filter out empty strings
+    
     // Create the Socket.IO server with enhanced settings for Vercel serverless deployment
     this.io = new Server(httpServer, {
       // CORS configuration tailored for Vercel
       cors: {
-        // In production, we use a more restrictive CORS policy
-        origin: process.env.NODE_ENV === 'production' 
-          ? [
-              // Main production URLs
-              process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-              process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL}` : null,
-              // Custom domain
-              "https://ramsita-clash-of-cards.vercel.app",
-              // Allow Vercel preview deployments (using function pattern matching)
-              (requestOrigin: string) => {
-                return requestOrigin && requestOrigin.match(/https:\/\/.*\.vercel\.app$/) !== null;
-              }
-            ].filter(Boolean) 
-          : "*", // In development, allow all origins
+        // In production, use specific origins; in development, allow all
+        origin: process.env.NODE_ENV === 'production' ? productionOrigins : "*",
         methods: ["GET", "POST", "OPTIONS"],
         credentials: true,
         allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
