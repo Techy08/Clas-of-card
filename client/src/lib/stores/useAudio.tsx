@@ -84,6 +84,14 @@ export const useAudio = create<AudioState>((set, get) => ({
         backgroundMusic.currentTime = 0;
         set({ isBackgroundMusicPlaying: false });
         console.log("Background music stopped");
+        
+        // Remove from session storage when music is stopped
+        try {
+          sessionStorage.removeItem('backgroundMusicPlaying');
+        } catch (error) {
+          // Session storage might not be available in some contexts
+          console.log("Could not access session storage:", error);
+        }
       } catch (error) {
         console.error("Error stopping background music:", error);
       }
@@ -95,6 +103,14 @@ export const useAudio = create<AudioState>((set, get) => ({
           backgroundMusic.loop = true;
           backgroundMusic.volume = 0.3;
           backgroundMusic.crossOrigin = "anonymous"; // Enable cross-origin audio - helps with CDN on Vercel
+          
+          // Set persistent flag to remember music should be playing
+          try {
+            sessionStorage.setItem('backgroundMusicPlaying', 'true');
+          } catch (error) {
+            // Session storage might not be available in some contexts
+            console.log("Could not access session storage:", error);
+          }
           
           // Create a promise with a timeout to handle audio context issues
           const playPromise = backgroundMusic.play();

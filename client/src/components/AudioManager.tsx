@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 /**
  * AudioManager component handles loading and initializing all game audio
  * It also provides a mute button that can be displayed in the UI
+ * This component also persists the audio state between page refreshes
  */
 const AudioManager = ({ showControls = true }: { showControls?: boolean }) => {
   const {
@@ -22,6 +23,35 @@ const AudioManager = ({ showControls = true }: { showControls?: boolean }) => {
   } = useAudio();
   
   const soundsLoaded = useRef(false);
+  
+  // Handle visibility change (tab switching)
+  useEffect(() => {
+    // Resume background music when tab becomes visible again
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        try {
+          const shouldPlayMusic = sessionStorage.getItem('backgroundMusicPlaying');
+          const { backgroundMusic, isMuted, isBackgroundMusicPlaying } = useAudio.getState();
+          
+          if (shouldPlayMusic === 'true' && !isMuted && backgroundMusic && !isBackgroundMusicPlaying) {
+            console.log("Tab visible again, resuming background music");
+            backgroundMusic.play().catch(error => {
+              console.log("Could not resume background music:", error);
+            });
+          }
+        } catch (error) {
+          console.log("Error handling visibility change:", error);
+        }
+      }
+    };
+    
+    // Add visibility change listener
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
   
   // Load and initialize all audio files
   useEffect(() => {
@@ -56,8 +86,24 @@ const AudioManager = ({ showControls = true }: { showControls?: boolean }) => {
         win.volume = 0.5; // Higher volume for win
         setWinSound(win);
         
-        // Start playing background music automatically
-        toggleBackgroundMusic();
+        // Check if background music should be playing based on session storage
+        try {
+          const shouldPlayMusic = sessionStorage.getItem('backgroundMusicPlaying');
+          if (shouldPlayMusic === 'true' && !isBackgroundMusicPlaying) {
+            console.log("Resuming background music from saved state");
+            toggleBackgroundMusic();
+          } else if (!shouldPlayMusic && !isBackgroundMusicPlaying) {
+            // Start playing background music by default for new sessions
+            console.log("Starting background music (new session)");
+            toggleBackgroundMusic();
+          }
+        } catch (error) {
+          // If session storage is not available, just start the music
+          console.log("Session storage not available, starting music by default");
+          if (!isBackgroundMusicPlaying) {
+            toggleBackgroundMusic();
+          }
+        }
         
         soundsLoaded.current = true;
         console.log("Game audio loaded successfully");
@@ -81,7 +127,8 @@ const AudioManager = ({ showControls = true }: { showControls?: boolean }) => {
     setHitSound, 
     setSuccessSound,
     setWinSound,
-    toggleBackgroundMusic
+    toggleBackgroundMusic,
+    isBackgroundMusicPlaying
   ]);
   
   if (!showControls) return null;
