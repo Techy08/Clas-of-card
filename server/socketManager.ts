@@ -633,11 +633,12 @@ export class SocketManager {
           log(`AI ${aiPlayer.name} strategy: ${strategy}`, "socket");
           
           // Check for any potential winning cards that could help complete a set
-          const cardCounts = {
-            Ram: aiHand.filter(c => c.type === CardType.Ram && !c.isRamChaal).length,
-            Sita: aiHand.filter(c => c.type === CardType.Sita).length,
-            Lakshman: aiHand.filter(c => c.type === CardType.Lakshman).length,
-            Ravan: aiHand.filter(c => c.type === CardType.Ravan).length,
+          const cardCounts: Record<string, number> = {
+            [CardType.Ram.toString()]: aiHand.filter(c => c.type === CardType.Ram && !c.isRamChaal).length,
+            [CardType.Sita.toString()]: aiHand.filter(c => c.type === CardType.Sita).length,
+            [CardType.Lakshman.toString()]: aiHand.filter(c => c.type === CardType.Lakshman).length,
+            [CardType.Ravan.toString()]: aiHand.filter(c => c.type === CardType.Ravan).length,
+            'RamChaal': aiHand.filter(c => c.isRamChaal).length,
           };
           
           const hasRamChaal = aiHand.some(c => c.isRamChaal);
@@ -695,16 +696,16 @@ export class SocketManager {
         let emotion: 'happy' | 'frustrated' | 'excited' | 'neutral' = 'neutral';
         
         // Check if AI player is close to winning
-        const cardTypeCount = {};
+        const cardTypeCount: Record<string, number> = {};
         aiPlayer.hand.forEach(card => {
-          const type = card.isRamChaal ? 'RamChaal' : card.type;
+          const type = card.isRamChaal ? 'RamChaal' : card.type.toString();
           cardTypeCount[type] = (cardTypeCount[type] || 0) + 1;
         });
         
-        if (cardTypeCount['RamChaal'] && cardTypeCount[CardType.Ram] >= 2) {
+        if (cardTypeCount['RamChaal'] && cardTypeCount[CardType.Ram.toString()] >= 2) {
           context = "close to winning with Ram cards";
           emotion = 'excited';
-        } else if (Object.values(cardTypeCount).some(count => (count as number) >= 3)) {
+        } else if (Object.values(cardTypeCount).some(count => count >= 3)) {
           context = "close to winning";
           emotion = 'excited';
         }

@@ -7,6 +7,41 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// CORS middleware for Vercel deployment
+app.use((req, res, next) => {
+  // Get origin from request
+  const origin = req.headers.origin;
+  
+  // Allowed origins - this includes the Vercel deployment URL
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5000',
+    'http://localhost:5173',
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    'https://your-app-name.vercel.app' // Replace with your actual Vercel app name
+  ].filter(Boolean);
+  
+  // Check if the request origin is allowed
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    // Allow all origins in development or if no matching origin found
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
 // Initialize database
 initializeDatabase().catch(err => {
   log(`Failed to initialize database: ${err}`, "db");
