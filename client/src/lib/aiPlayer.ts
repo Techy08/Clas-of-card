@@ -74,8 +74,10 @@ const handleAiTurn = (aiPlayer: Player) => {
   // Get the next player ID
   const nextPlayerId = (aiPlayer.id + 1) % players.length;
   
-  // Select best card to pass
+  // Select best card to pass using enhanced strategic logic
   const cardToPass = getBestCardToPass(aiPlayer.hand);
+  
+  console.log(`AI ${aiPlayer.name} passing card ${cardToPass.type} to next player`);
   
   // Pass the card
   passTurn(cardToPass.id, nextPlayerId);

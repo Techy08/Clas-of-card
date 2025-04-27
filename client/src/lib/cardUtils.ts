@@ -138,7 +138,58 @@ export const getBestCardToPass = (hand: Card[]): Card => {
   // Always keep Ram Chaal card
   const hasRamChaal = hand.some(c => c.isRamChaal);
   
-  // If we have Ram Chaal, try to keep Ram cards
+  // Check if we're close to winning with any set
+  const ramCount = counts[CardType.Ram] + (hasRamChaal ? 1 : 0);
+  const sitaCount = counts[CardType.Sita];
+  const lakshmanCount = counts[CardType.Lakshman];
+  const ravanCount = counts[CardType.Ravan];
+  
+  // Calculate how close we are to each winning combination
+  const winningPotential = {
+    ram: hasRamChaal ? ramCount / 4 : 0, // Need Ram Chaal + 3 Ram cards
+    sita: sitaCount / 4,
+    lakshman: lakshmanCount / 4,
+    ravan: ravanCount / 4
+  };
+  
+  // Find the most promising winning set
+  const bestSet = Object.entries(winningPotential)
+    .reduce((best, [set, potential]) => 
+      potential > best.potential ? { set, potential } : best, 
+      { set: 'none', potential: 0 }
+    );
+  
+  // Strategic decision based on winning potential
+  if (bestSet.potential >= 0.5) {
+    // We're close to winning, keep cards that help our winning set
+    switch (bestSet.set) {
+      case 'ram':
+        // Pass a non-Ram card
+        return hand.find(c => c.type !== CardType.Ram) || 
+               hand.find(c => c.type === CardType.Ram && !c.isRamChaal) || 
+               hand[0];
+      case 'sita':
+        // Pass a non-Sita card
+        return hand.find(c => c.type !== CardType.Sita && !c.isRamChaal) || 
+               hand.find(c => !c.isRamChaal) || 
+               hand[0];
+      case 'lakshman':
+        // Pass a non-Lakshman card
+        return hand.find(c => c.type !== CardType.Lakshman && !c.isRamChaal) || 
+               hand.find(c => !c.isRamChaal) || 
+               hand[0];
+      case 'ravan':
+        // Pass a non-Ravan card
+        return hand.find(c => c.type !== CardType.Ravan && !c.isRamChaal) || 
+               hand.find(c => !c.isRamChaal) || 
+               hand[0];
+      default:
+        // Shouldn't reach here but fallback logic
+        break;
+    }
+  }
+  
+  // If we have Ram Chaal, prioritize keeping Ram cards
   if (hasRamChaal) {
     // Pass cards that are not Ram or Ram Chaal
     const nonRamCard = hand.find(c => c.type !== CardType.Ram);

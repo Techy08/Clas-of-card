@@ -64,8 +64,8 @@ const Card = ({
       <div 
         className={cn(
           "w-16 h-24 sm:w-20 sm:h-28 rounded-lg flex flex-col items-center justify-center shadow-md transition-all duration-300",
-          isHidden ? "bg-gray-700 border-2 border-gray-600" : background,
-          border
+          isHidden ? "bg-gray-700" : background
+          // No border as requested
         )}
       >
         {isHidden ? (

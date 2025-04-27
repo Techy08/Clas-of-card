@@ -82,7 +82,7 @@ const WinnerPopup = ({ winner, players, onNewGame, onExit }: WinnerPopupProps) =
                         style={{ position: "relative", transform: "none" }}
                       />
                       {winningSet?.includes(card.id) && (
-                        <div className="absolute inset-0 border-2 border-amber-500 rounded-lg animate-pulse"></div>
+                        <div className="absolute inset-0 bg-amber-200/30 dark:bg-amber-500/30 rounded-lg animate-pulse"></div>
                       )}
                     </div>
                   ))}
