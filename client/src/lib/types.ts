@@ -20,6 +20,7 @@ export interface Player {
   hand: Card[];
   isAI?: boolean;
   winningSet: number[] | null;
+  position?: number; // 1st, 2nd, 3rd (winners) or 4th (loser)
 }
 
 // Game state enum

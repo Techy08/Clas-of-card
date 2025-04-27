@@ -69,10 +69,13 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       useGameStore.getState().startGame();
     });
     
-    socket.on("game_ended", (winner) => {
+    socket.on("game_ended", (gameEndData) => {
+      const { winner, winningPlayers, finishedPositions } = gameEndData;
       useGameStore.getState().updateGameState({
         isGameOver: true,
         winner,
+        winningPlayers: winningPlayers || [],
+        finishedPositions: finishedPositions || []
       });
     });
     

@@ -15,6 +15,7 @@ interface GameStoreState {
   selectedCard: number | null;
   winner: Player | null;
   winningPlayers: Player[]; // All players who have won in order (1st, 2nd, 3rd)
+  finishedPositions: number[]; // Positions that have been determined (1, 2, 3, 4)
   round: number;
   roundStartPlayerId: number | null;
   
@@ -46,6 +47,7 @@ export const useGameStore = create<GameStoreState>()(
     selectedCard: null,
     winner: null,
     winningPlayers: [],
+    finishedPositions: [],
     round: 0,
     roundStartPlayerId: null,
     
