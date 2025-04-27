@@ -54,17 +54,25 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       return window.location.origin;
     };
     
-    // Create socket connection with settings optimized for Vercel
+    // Create socket connection with enhanced settings optimized for Vercel's serverless environment
     const socket = io(getServerUrl(), {
       path: "/socket.io/",
-      transports: ["websocket", "polling"], // Fallback to polling if websocket fails
+      transports: ["websocket", "polling"], // Try websocket first, fallback to polling
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 20,
+      reconnectionAttempts: 30,        // More attempts for serverless cold starts
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 30000,
-      forceNew: true,
+      reconnectionDelayMax: 8000,      // Higher max delay for serverless environment
+      timeout: 20000,                  // Reduced timeout to fail faster if server is down
+      forceNew: true,                  // Always create a new connection
+      extraHeaders: {                  // Add headers to help with Vercel deployment
+        "Cache-Control": "no-cache",
+      },
+      randomizationFactor: 0.5,        // Higher randomization to avoid connection stampedes
+      auth: {                          // Add basic auth data in case we need it for reconnection
+        clientId: `client-${Math.random().toString(36).substring(2, 10)}`,
+        timestamp: Date.now()
+      }
     });
     
     // Set up event listeners

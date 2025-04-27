@@ -7,36 +7,64 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// CORS middleware for Vercel deployment
+// Enhanced CORS middleware optimized for Vercel deployment
 app.use((req, res, next) => {
   // Get origin from request
   const origin = req.headers.origin;
   
-  // Allowed origins - this includes the Vercel deployment URL
+  // Allowed origins - this includes the Vercel deployment URLs
   const allowedOrigins = [
+    // Local development
     'http://localhost:3000',
     'http://localhost:5000',
     'http://localhost:5173',
+    
+    // Vercel deployments (both preview and production)
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-    'https://your-app-name.vercel.app' // Replace with your actual Vercel app name
+    process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL}` : null,
+    
+    // Custom domain if configured in Vercel
+    'https://ramsita-clash-of-cards.vercel.app',
+    
+    // Allow Vercel preview deployments
+    /https:\/\/.*\.vercel\.app$/
   ].filter(Boolean);
   
   // Check if the request origin is allowed
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
+  if (origin) {
+    // Check exact matches first
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } 
+    // Check regex patterns for preview deployments
+    else if (allowedOrigins.some(allowed => 
+      typeof allowed === 'object' && allowed instanceof RegExp && allowed.test(origin)
+    )) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    else {
+      // In production, don't default to '*' for better security
+      if (process.env.NODE_ENV === 'production') {
+        log(`Blocked request from unauthorized origin: ${origin}`, 'cors');
+      } else {
+        // In development, allow all origins as a fallback
+        res.setHeader('Access-Control-Allow-Origin', '*');
+      }
+    }
   } else {
-    // Allow all origins in development or if no matching origin found
+    // No origin header - likely a non-browser client or same-origin request
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
 
-  // Set CORS headers
+  // Set enhanced CORS headers for Vercel
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours - reduce preflight requests
   
-  // Handle preflight requests
+  // Handle preflight requests efficiently
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.status(204).end(); // 204 is more appropriate for preflight
   }
   
   next();

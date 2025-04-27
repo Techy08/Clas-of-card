@@ -28,28 +28,51 @@ export class SocketManager {
   private randomMatchQueue: Array<{socketId: string, playerName: string}> = []; // Queue for random matchmaking
 
   constructor(httpServer: any) {
-    // Create the Socket.IO server with settings optimized for Vercel deployment
+    // Create the Socket.IO server with enhanced settings for Vercel serverless deployment
     this.io = new Server(httpServer, {
+      // CORS configuration tailored for Vercel
       cors: {
+        // In production, we use a more restrictive CORS policy
         origin: process.env.NODE_ENV === 'production' 
-          ? [process.env.VERCEL_URL || "https://your-vercel-app.vercel.app"] 
-          : "*",
-        methods: ["GET", "POST"],
-        credentials: true
+          ? [
+              // Main production URLs
+              process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+              process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL}` : null,
+              // Custom domain
+              "https://ramsita-clash-of-cards.vercel.app",
+              // Allow Vercel preview deployments (using function pattern matching)
+              (requestOrigin: string) => {
+                return requestOrigin && requestOrigin.match(/https:\/\/.*\.vercel\.app$/) !== null;
+              }
+            ].filter(Boolean) 
+          : "*", // In development, allow all origins
+        methods: ["GET", "POST", "OPTIONS"],
+        credentials: true,
+        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
       },
-      // Adaptive transport strategy
-      transports: ["websocket", "polling"],
-      // Enable better reconnection handling
+      
+      // Adaptive transport strategy optimized for serverless environments
+      transports: ["websocket", "polling"], // WebSocket first, fallback to polling
+      pingTimeout: 30000,         // Increased ping timeout for serverless cold starts
+      pingInterval: 25000,        // Longer interval between pings to reduce connections
+      
+      // Advanced connection recovery - helps with Vercel's function lifecycle
       connectionStateRecovery: {
-        // the backup duration of the sessions and the packets
-        maxDisconnectionDuration: 2 * 60 * 1000,
-        // whether to skip middlewares upon successful recovery
+        // Longer backup duration to handle serverless cold starts
+        maxDisconnectionDuration: 3 * 60 * 1000, // 3 minutes
+        // Skip middlewares for faster recovery
         skipMiddlewares: true,
       },
-      // Additional Vercel-friendly settings
-      path: "/socket.io/",
-      allowEIO3: true, // Allow Engine.IO protocol version 3
-      serveClient: false // Don't serve client files from server
+      
+      // Additional settings for Vercel deployment
+      path: "/socket.io/",        // Standard path for Socket.IO
+      allowEIO3: true,            // Support older clients
+      serveClient: false,         // Don't serve client files from server
+      connectTimeout: 45000,      // Longer timeout for initial connection (serverless cold starts)
+      maxHttpBufferSize: 1e6,     // 1MB - reasonable for a card game
+      destroyUpgrade: false,      // Let Vercel handle the upgrade
+      allowUpgrades: true,        // Allow transport upgrades
+      cleanupEmptyChildNamespaces: true // Cleanup unused namespaces
     });
     
     this.initialize();
