@@ -12,9 +12,10 @@ interface WinnerPopupProps {
   onNewGame: () => void;
   onExit: () => void;
   winningPlayers?: Player[]; // List of players in order of winning (1st, 2nd, 3rd)
+  finishedPositions?: number[]; // Positions that have been determined (1, 2, 3, 4)
 }
 
-const WinnerPopup = ({ winner, players, onNewGame, onExit, winningPlayers = [] }: WinnerPopupProps) => {
+const WinnerPopup = ({ winner, players, onNewGame, onExit, winningPlayers = [], finishedPositions = [] }: WinnerPopupProps) => {
   const [showRewards, setShowRewards] = useState(false);
   
   // Sort players by position
@@ -95,11 +96,17 @@ const WinnerPopup = ({ winner, players, onNewGame, onExit, winningPlayers = [] }
       >
         <div className="text-center mb-6">
           <h2 className="text-3xl font-bold mb-2">Game Over!</h2>
-          {winner ? (
+          {winningPlayers && winningPlayers.length > 0 ? (
             <div>
               <p className="text-xl mb-2">
-                <span className="font-semibold text-primary">{winner.name}</span> wins first place!
+                <span className="font-semibold text-primary">{winningPlayers[0]?.name || winner?.name}</span> wins first place!
               </p>
+              {winningPlayers.length > 1 && (
+                <p className="text-sm mb-2">
+                  <span className="font-medium">{winningPlayers[1]?.name}</span> takes second place
+                  {winningPlayers.length > 2 ? ` and ${winningPlayers[2]?.name} takes third place.` : '.'}
+                </p>
+              )}
               <p className="text-sm text-muted-foreground">
                 In this game, the first three players to complete a winning set are winners, while the last player loses.
               </p>
@@ -193,7 +200,7 @@ const WinnerPopup = ({ winner, players, onNewGame, onExit, winningPlayers = [] }
       {showRewards && winner && (
         <GameRewards 
           winner={winner} 
-          players={players} 
+          players={sortedPlayers.length > 0 ? sortedPlayers : players} 
           onClose={() => setShowRewards(false)} 
         />
       )}

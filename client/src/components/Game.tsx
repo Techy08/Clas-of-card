@@ -207,6 +207,7 @@ const Game = () => {
               winner={winner} 
               players={players}
               winningPlayers={useGameStore(state => state.winningPlayers)}
+              finishedPositions={useGameStore(state => state.finishedPositions)}
               onNewGame={handleNewGame}
               onExit={handleExitGame}
             />

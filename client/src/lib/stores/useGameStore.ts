@@ -111,6 +111,7 @@ export const useGameStore = create<GameStoreState>()(
         selectedCard: null,
         winner: null,
         winningPlayers: [],
+        finishedPositions: [],
         round: 0,
         roundStartPlayerId: null,
       });
