@@ -9,15 +9,54 @@ const { Client } = pg;
 // Create a database connection
 const client = new Client({
   connectionString: process.env.DATABASE_URL,
+  // Add connection timeout and other reliability settings
+  connectionTimeoutMillis: 10000, // 10 seconds
+  query_timeout: 10000, // 10 seconds
+  statement_timeout: 10000, // 10 seconds
+  idle_in_transaction_session_timeout: 10000, // 10 seconds
 });
 
-// Connect to the database
+// Connect to the database with retry mechanism
 async function connect() {
-  try {
-    await client.connect();
-    log('Connected to PostgreSQL database', 'db');
-  } catch (error) {
-    log(`Error connecting to PostgreSQL: ${error}`, 'db');
+  let retries = 5;
+  let connected = false;
+  
+  while (retries > 0 && !connected) {
+    try {
+      await client.connect();
+      connected = true;
+      log('Connected to PostgreSQL database', 'db');
+      
+      // Add error event handler to automatically reconnect
+      client.on('error', async (err) => {
+        log(`Database connection error: ${err}. Attempting to reconnect...`, 'db');
+        try {
+          // Try to end the client if it's still connected
+          try {
+            await client.end();
+          } catch (endError) {
+            // Ignore errors when ending client
+          }
+          
+          // Try to reconnect
+          await client.connect();
+          log('Successfully reconnected to PostgreSQL database', 'db');
+        } catch (reconnectError) {
+          log(`Failed to reconnect to database: ${reconnectError}`, 'db');
+        }
+      });
+      
+    } catch (error) {
+      retries--;
+      log(`Error connecting to PostgreSQL: ${error}. Retries left: ${retries}`, 'db');
+      
+      if (retries > 0) {
+        // Wait for 2 seconds before retrying
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } else {
+        log('Maximum retries reached. Could not connect to database.', 'db');
+      }
+    }
   }
 }
 

@@ -48,9 +48,23 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
+    
+    // Log the error for debugging
+    log(`Server error: ${err.message || 'Unknown error'} (${err.code || 'no code'})`, 'express');
+    
+    // Handle database connection errors specially
+    if (err.code && (err.code === '57P01' || err.code.startsWith('08'))) {
+      // Database connection errors (57P01, 08XXX, etc.)
+      log('Database connection error detected. The game will attempt to reconnect automatically.', 'express');
+      
+      return res.status(503).json({ 
+        message: "Database service temporarily unavailable. Please try again shortly.",
+        code: err.code
+      });
+    }
 
-    res.status(status).json({ message });
-    throw err;
+    // Send error response but don't throw it again (preventing server crash)
+    res.status(status).json({ message, code: err.code });
   });
 
   // importantly only setup vite in development and after
