@@ -78,7 +78,19 @@ const GameRewards: React.FC<GameRewardsProps> = ({ winner, players, onClose }) =
         <CardContent>
           <div className="space-y-4">
             {sortedPlayers.map((player) => {
-              const position = player.position || (player.id === winner.id ? 1 : 4);
+              // Determine position (default: winner gets 1st place, others get 4th place)
+              let position = 4; // Default position is 4th (loser)
+              if (player.position) {
+                // Use position from player object if available
+                position = player.position;
+              } else if (player.id === winner.id) {
+                // If no position but this is the winner, default to 1st
+                position = 1;
+              } else if (player.winningSet) {
+                // If player has winning combination but no set position, default to 2nd or 3rd
+                // This is a fallback and shouldn't normally happen
+                position = 2;
+              }
               const { points, description } = getReward(position);
               
               // Different styles based on position
