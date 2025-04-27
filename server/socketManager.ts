@@ -174,9 +174,13 @@ export class SocketManager {
             // Update game state for all players
             this.io.to(roomId).emit("game_state_update", this.rooms[roomId].getRoomState());
             
-            // If there's a winner, emit game ended event
-            if (this.rooms[roomId].winner) {
-              this.io.to(roomId).emit("game_ended", this.rooms[roomId].winner);
+            // If the game is over, emit game ended event
+            if (this.rooms[roomId].state === GameState.ENDED) {
+              this.io.to(roomId).emit("game_ended", {
+                winner: this.rooms[roomId].winner,
+                winningPlayers: this.rooms[roomId].winningPlayers,
+                finishedPositions: this.rooms[roomId].finishedPositions
+              });
             }
           } catch (error) {
             log(`Error passing card: ${error}`, "socket");
@@ -323,8 +327,13 @@ export class SocketManager {
         return;
       }
       
-      // Sort players by winning status (winner first, then others)
+      // Sort players by position (1st, 2nd, 3rd, 4th)
       const sortedPlayers = [...players].sort((a, b) => {
+        // If both players have position property, sort by it
+        if (a.position && b.position) {
+          return a.position - b.position;
+        }
+        // Otherwise fall back to old logic (winner first)
         if (a.id === winner?.id) return -1;
         if (b.id === winner?.id) return 1;
         return 0;
