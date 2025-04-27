@@ -43,16 +43,28 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       }
     }
     
-    // Create socket connection with better reconnection settings
-    const socket = io("", {
+    // Get the server URL for Vercel deployment
+    const getServerUrl = () => {
+      // For local development
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return "";
+      }
+      
+      // For Vercel production deployment
+      return window.location.origin;
+    };
+    
+    // Create socket connection with settings optimized for Vercel
+    const socket = io(getServerUrl(), {
+      path: "/socket.io/",
       transports: ["websocket", "polling"], // Fallback to polling if websocket fails
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 20, // Increased to 20 attempts
+      reconnectionAttempts: 20,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 30000, // Increased to 30 seconds
-      forceNew: true, // Force a new connection
+      timeout: 30000,
+      forceNew: true,
     });
     
     // Set up event listeners

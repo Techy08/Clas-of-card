@@ -6,14 +6,19 @@ import { log } from './vite';
 
 const { Pool } = pg;
 
-// Create a connection pool instead of a single client
-// This handles connections more reliably
+// Create a connection pool optimized for Vercel serverless deployment
+// Serverless functions require more careful connection management
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-  connectionTimeoutMillis: 10000, // How long to wait for a connection
-  maxUses: 7500, // Close and replace a connection after it has been used this many times
+  // For Vercel deployment, we need SSL but with reduced security checks
+  ssl: process.env.NODE_ENV === 'production' 
+    ? { rejectUnauthorized: false } 
+    : undefined,
+  // Optimized settings for serverless environment
+  max: 10, // Reduced max connections for serverless
+  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle
+  connectionTimeoutMillis: 5000, // Shorter timeout for faster serverless functions
+  maxUses: 1000, // Close connection after fewer uses in serverless environment
 });
 
 // Better error handling for the pool

@@ -28,19 +28,28 @@ export class SocketManager {
   private randomMatchQueue: Array<{socketId: string, playerName: string}> = []; // Queue for random matchmaking
 
   constructor(httpServer: any) {
-    // Create the Socket.IO server with improved settings
+    // Create the Socket.IO server with settings optimized for Vercel deployment
     this.io = new Server(httpServer, {
       cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
+        origin: process.env.NODE_ENV === 'production' 
+          ? [process.env.VERCEL_URL || "https://your-vercel-app.vercel.app"] 
+          : "*",
+        methods: ["GET", "POST"],
+        credentials: true
       },
+      // Adaptive transport strategy
+      transports: ["websocket", "polling"],
       // Enable better reconnection handling
       connectionStateRecovery: {
         // the backup duration of the sessions and the packets
         maxDisconnectionDuration: 2 * 60 * 1000,
         // whether to skip middlewares upon successful recovery
         skipMiddlewares: true,
-      }
+      },
+      // Additional Vercel-friendly settings
+      path: "/socket.io/",
+      allowEIO3: true, // Allow Engine.IO protocol version 3
+      serveClient: false // Don't serve client files from server
     });
     
     this.initialize();
@@ -48,15 +57,9 @@ export class SocketManager {
 
   // Initialize socket handlers
   private initialize(): void {
-    // Configure Socket.IO for better reliability (if possible)
-    try {
-      if (this.io.engine) {
-        this.io.engine.pingTimeout = 30000; // 30 seconds
-        this.io.engine.pingInterval = 10000; // 10 seconds
-      }
-    } catch (error) {
-      console.error("Could not configure Socket.IO engine settings:", error);
-    }
+    // Configure Socket.IO for better reliability
+    // In Socket.IO v4, engine settings are configured during initialization
+    // instead of modifying the engine properties directly
     
     this.io.on("connection", (socket: Socket) => {
       // Ensure socket.id is available and log it
@@ -348,9 +351,9 @@ export class SocketManager {
             const player = this.rooms[roomId].players[playerIndex];
             log(`${player.name} disconnected from room: ${roomId}, preserving player data for reconnection`, "socket");
             
-            // Keep the player in the game but mark their socket as null
+            // Keep the player in the game but mark their socket as disconnected
             // This allows them to reconnect when they come back
-            this.rooms[roomId].players[playerIndex].socketId = null;
+            this.rooms[roomId].players[playerIndex].socketId = undefined;
             
             // Notify other players
             socket.to(roomId).emit("player_disconnected", player.id);
@@ -360,7 +363,7 @@ export class SocketManager {
               // Check if the player is still disconnected
               if (this.rooms[roomId] && 
                   this.rooms[roomId].players[playerIndex] && 
-                  this.rooms[roomId].players[playerIndex].socketId === null) {
+                  this.rooms[roomId].players[playerIndex].socketId === undefined) {
                 
                 // Now remove them permanently
                 const removedPlayer = this.rooms[roomId].removePlayer(player.id.toString());
@@ -370,7 +373,7 @@ export class SocketManager {
                   log(`${removedPlayer.name} permanently removed from room ${roomId} after timeout`, "socket");
                   
                   // If room is empty (no human players), delete it
-                  const humanPlayers = this.rooms[roomId].players.filter(p => p.socketId || p.socketId === null);
+                  const humanPlayers = this.rooms[roomId].players.filter(p => p.socketId !== undefined && !p.isAI);
                   if (humanPlayers.length === 0) {
                     delete this.rooms[roomId];
                     log(`Room deleted: ${roomId}`, "socket");
