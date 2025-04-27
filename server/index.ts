@@ -86,4 +86,33 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
+  
+  // Add better error handling for the server
+  server.on('error', (error) => {
+    log(`Server error: ${error.message}`, 'express');
+    
+    // Attempt recovery if it's a connection-related issue
+    if ((error as any).code === 'ECONNRESET' || (error as any).code === 'EPIPE') {
+      log('Connection reset detected, this is normal for client disconnections', 'express');
+    }
+  });
+  
+  // Add graceful shutdown handlers
+  const gracefulShutdown = () => {
+    log('Shutting down gracefully...', 'express');
+    server.close(() => {
+      log('HTTP server closed', 'express');
+      process.exit(0);
+    });
+    
+    // Force close if not closed within 10 seconds
+    setTimeout(() => {
+      log('Forcing shutdown after timeout', 'express');
+      process.exit(1);
+    }, 10000);
+  };
+  
+  // Listen for termination signals
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
 })();

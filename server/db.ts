@@ -4,16 +4,22 @@ import * as schema from '../shared/schema';
 import { eq, desc, asc } from 'drizzle-orm';
 import { log } from './vite';
 
-const { Client } = pg;
+const { Pool } = pg;
 
-// Create a database connection
-const client = new Client({
+// Create a connection pool instead of a single client
+// This handles connections more reliably
+const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // Add connection timeout and other reliability settings
-  connectionTimeoutMillis: 10000, // 10 seconds
-  query_timeout: 10000, // 10 seconds
-  statement_timeout: 10000, // 10 seconds
-  idle_in_transaction_session_timeout: 10000, // 10 seconds
+  max: 20, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+  connectionTimeoutMillis: 10000, // How long to wait for a connection
+  maxUses: 7500, // Close and replace a connection after it has been used this many times
+});
+
+// Better error handling for the pool
+pool.on('error', (err, client) => {
+  log(`Unexpected error on idle client: ${err.message}`, 'db');
+  // Do not throw error here, just log it
 });
 
 // Connect to the database with retry mechanism
@@ -23,29 +29,12 @@ async function connect() {
   
   while (retries > 0 && !connected) {
     try {
-      await client.connect();
+      // Test the connection by getting and releasing a client
+      const client = await pool.connect();
+      client.release();
+      
       connected = true;
       log('Connected to PostgreSQL database', 'db');
-      
-      // Add error event handler to automatically reconnect
-      client.on('error', async (err) => {
-        log(`Database connection error: ${err}. Attempting to reconnect...`, 'db');
-        try {
-          // Try to end the client if it's still connected
-          try {
-            await client.end();
-          } catch (endError) {
-            // Ignore errors when ending client
-          }
-          
-          // Try to reconnect
-          await client.connect();
-          log('Successfully reconnected to PostgreSQL database', 'db');
-        } catch (reconnectError) {
-          log(`Failed to reconnect to database: ${reconnectError}`, 'db');
-        }
-      });
-      
     } catch (error) {
       retries--;
       log(`Error connecting to PostgreSQL: ${error}. Retries left: ${retries}`, 'db');
@@ -58,13 +47,15 @@ async function connect() {
       }
     }
   }
+  
+  return connected;
 }
 
 // Initialize database connection
 connect();
 
-// Create Drizzle ORM instance
-export const db = drizzle(client, { schema });
+// Create Drizzle ORM instance with the connection pool
+export const db = drizzle(pool, { schema });
 
 // User operations
 export async function createUser(username: string, password: string, displayName?: string) {

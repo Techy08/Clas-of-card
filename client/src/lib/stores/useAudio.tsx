@@ -74,18 +74,42 @@ export const useAudio = create<AudioState>((set, get) => ({
     if (!backgroundMusic) return;
     
     if (isBackgroundMusicPlaying) {
-      // Stop the music
-      backgroundMusic.pause();
-      set({ isBackgroundMusicPlaying: false });
-      console.log("Background music stopped");
+      try {
+        // Stop the music safely
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+        set({ isBackgroundMusicPlaying: false });
+        console.log("Background music stopped");
+      } catch (error) {
+        console.error("Error stopping background music:", error);
+      }
     } else {
       // Start the music if not muted
       if (!isMuted) {
-        backgroundMusic.loop = true;
-        backgroundMusic.volume = 0.3;
-        backgroundMusic.play().catch(error => {
-          console.log("Background music play prevented:", error);
-        });
+        try {
+          backgroundMusic.loop = true;
+          backgroundMusic.volume = 0.3;
+          
+          // Create a promise with a timeout to handle audio context issues
+          const playPromise = backgroundMusic.play();
+          
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                console.log("Background music started successfully");
+              })
+              .catch(error => {
+                console.log("Background music play prevented:", error);
+                // Fallback for autoplay policy
+                document.addEventListener('click', function audioUnlock() {
+                  backgroundMusic.play().catch(() => {});
+                  document.removeEventListener('click', audioUnlock);
+                }, { once: true });
+              });
+          }
+        } catch (error) {
+          console.error("Error starting background music:", error);
+        }
       }
       set({ isBackgroundMusicPlaying: true });
       console.log("Background music started");
@@ -118,33 +142,67 @@ export const useAudio = create<AudioState>((set, get) => ({
   playCardFlip: () => {
     const { cardFlipSound, isMuted } = get();
     if (cardFlipSound && !isMuted) {
-      const soundClone = cardFlipSound.cloneNode() as HTMLAudioElement;
-      soundClone.volume = 0.2;
-      soundClone.play().catch(error => {
-        console.log("Card flip sound play prevented:", error);
-      });
+      try {
+        const soundClone = cardFlipSound.cloneNode() as HTMLAudioElement;
+        soundClone.volume = 0.2;
+        
+        // Use safe play method with fallback
+        const playPromise = soundClone.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.log("Card flip sound play prevented:", error);
+            // We won't add the click listener here as it's not as important as music
+          });
+        }
+      } catch (error) {
+        console.error("Error playing card flip sound:", error);
+      }
     }
   },
   
   playCardMove: () => {
     const { cardMoveSound, isMuted } = get();
     if (cardMoveSound && !isMuted) {
-      const soundClone = cardMoveSound.cloneNode() as HTMLAudioElement; 
-      soundClone.volume = 0.25;
-      soundClone.play().catch(error => {
-        console.log("Card move sound play prevented:", error);
-      });
+      try {
+        const soundClone = cardMoveSound.cloneNode() as HTMLAudioElement; 
+        soundClone.volume = 0.25;
+        
+        // Use safe play method with fallback
+        const playPromise = soundClone.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.log("Card move sound play prevented:", error);
+          });
+        }
+      } catch (error) {
+        console.error("Error playing card move sound:", error);
+      }
     }
   },
   
   playWinSound: () => {
     const { winSound, isMuted } = get();
     if (winSound && !isMuted) {
-      winSound.currentTime = 0;
-      winSound.volume = 0.5;
-      winSound.play().catch(error => {
-        console.log("Win sound play prevented:", error);
-      });
+      try {
+        // Win sound is important, so we'll make sure it resets properly
+        winSound.currentTime = 0;
+        winSound.volume = 0.5;
+        
+        // Use safe play method with fallback
+        const playPromise = winSound.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.log("Win sound play prevented:", error);
+            // For win sound, we'll add a click listener as it's important
+            document.addEventListener('click', function audioUnlock() {
+              winSound.play().catch(() => {});
+              document.removeEventListener('click', audioUnlock);
+            }, { once: true });
+          });
+        }
+      } catch (error) {
+        console.error("Error playing win sound:", error);
+      }
     }
   }
 }));

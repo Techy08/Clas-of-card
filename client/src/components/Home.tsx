@@ -1,7 +1,5 @@
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Canvas } from "@react-three/fiber";
-import { Text, Float, PerspectiveCamera, useTexture } from "@react-three/drei";
 import { motion } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { Button } from "./ui/button";
@@ -115,16 +113,9 @@ const Home = () => {
       </Helmet>
 
       <div className="relative w-full h-screen overflow-hidden">
-        {/* 3D Canvas Background */}
+        {/* Background Element */}
         <div className="absolute inset-0">
-          <Canvas>
-            <PerspectiveCamera makeDefault position={[0, 0, 5]} />
-            <ambientLight intensity={0.3} />
-            <directionalLight position={[10, 10, 5]} intensity={1} />
-            <Suspense fallback={null}>
-              <ThreeScene />
-            </Suspense>
-          </Canvas>
+          <ThreeScene />
         </div>
 
         {/* UI Overlay */}

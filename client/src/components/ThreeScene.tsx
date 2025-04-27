@@ -1,146 +1,54 @@
-import { useRef, useMemo, useEffect } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
-import { useTexture } from "@react-three/drei";
-import * as THREE from "three";
-import { gsap } from "gsap";
+import React, { useMemo } from "react";
 
-// Floating cards component
-const FloatingCards = () => {
-  const cardsRef = useRef<THREE.Group>(null);
-  const { viewport } = useThree();
-  
-  // Create floating cards with different colors
-  const cards = useMemo(() => {
-    return Array.from({ length: 20 }, (_, i) => ({
-      position: [
-        (Math.random() - 0.5) * viewport.width * 2,
-        (Math.random() - 0.5) * viewport.height * 2,
-        (Math.random() - 0.5) * 5 - 3
-      ],
-      rotation: [
-        Math.random() * Math.PI,
-        Math.random() * Math.PI,
-        Math.random() * Math.PI
-      ],
-      scale: 0.1 + Math.random() * 0.15,
-      color: [
-        ['#FFD700', '#DC143C', '#9370DB', '#4169E1'][Math.floor(Math.random() * 4)],
-        ['#FF6347', '#6A5ACD', '#20B2AA', '#FF4500'][Math.floor(Math.random() * 4)]
-      ][Math.floor(Math.random() * 2)],
-      speed: 0.002 + Math.random() * 0.004
+// A simple background component that doesn't use Three.js
+// This helps avoid WebGL compatibility issues on some systems
+const ThreeScene: React.FC = () => {
+  // Pre-calculate random star positions to avoid re-rendering issues
+  const stars = useMemo(() => {
+    return Array.from({ length: 100 }).map(() => ({
+      size: Math.random() * 2 + 1,
+      top: `${Math.random() * 100}%`,
+      left: `${Math.random() * 100}%`,
+      opacity: Math.random() * 0.7 + 0.3,
+      delay: Math.random() * 5
     }));
-  }, [viewport]);
-
-  useFrame((state) => {
-    if (!cardsRef.current) return;
-    
-    // Rotate the entire card group
-    cardsRef.current.rotation.y += 0.001;
-    
-    // Update each card individually
-    cardsRef.current.children.forEach((card, i) => {
-      // Add floating motion
-      card.position.y += Math.sin(state.clock.elapsedTime * cards[i].speed) * 0.005;
-      // Slow rotation
-      card.rotation.x += 0.001;
-      card.rotation.y += 0.002;
-    });
-  });
-
-  return (
-    <group ref={cardsRef}>
-      {cards.map((card, i) => (
-        <mesh 
-          key={i} 
-          position={card.position as [number, number, number]} 
-          rotation={card.rotation as [number, number, number]} 
-          scale={card.scale}
-        >
-          <boxGeometry args={[5, 7, 0.2]} />
-          <meshStandardMaterial color={card.color} />
-        </mesh>
-      ))}
-    </group>
-  );
-};
-
-// Glowing symbol component
-const GlowingSymbol = () => {
-  const symbolRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
-  
-  useEffect(() => {
-    if (symbolRef.current && glowRef.current) {
-      // Animate glow
-      gsap.to(glowRef.current.scale, {
-        x: 1.2, 
-        y: 1.2, 
-        z: 1.2, 
-        duration: 1.5, 
-        repeat: -1, 
-        yoyo: true,
-        ease: "power1.inOut"
-      });
-      
-      // Animate symbol
-      gsap.to(symbolRef.current.rotation, {
-        y: Math.PI * 2,
-        duration: 10,
-        repeat: -1,
-        ease: "none"
-      });
-    }
   }, []);
   
   return (
-    <group position={[0, 0, -4]}>
-      {/* Symbol */}
-      <mesh ref={symbolRef}>
-        <torusGeometry args={[1.5, 0.3, 16, 50]} />
-        <meshStandardMaterial color="#FFD700" metalness={0.8} roughness={0.2} />
-      </mesh>
+    <div className="absolute inset-0 z-0 overflow-hidden">
+      {/* Gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-purple-900 via-blue-900 to-indigo-800"></div>
       
-      {/* Glow effect */}
-      <mesh ref={glowRef} scale={[1, 1, 1]}>
-        <torusGeometry args={[1.5, 0.4, 16, 50]} />
-        <meshStandardMaterial 
-          color="#FFA500" 
-          transparent={true} 
-          opacity={0.4}
-          emissive="#FFA500"
-          emissiveIntensity={2}
-        />
-      </mesh>
-    </group>
-  );
-};
-
-// Background component
-const Background = () => {
-  const texture = useTexture("/textures/sky.png");
-  
-  // Create a larger background sphere
-  return (
-    <mesh position={[0, 0, -10]}>
-      <sphereGeometry args={[15, 32, 32]} />
-      <meshBasicMaterial map={texture} side={THREE.BackSide} />
-    </mesh>
-  );
-};
-
-// Main scene component
-const ThreeScene = () => {
-  return (
-    <>
-      <fog attach="fog" args={["#000000", 5, 15]} />
-      <ambientLight intensity={0.8} />
-      <pointLight position={[10, 10, 10]} intensity={1} />
-      <pointLight position={[-10, -10, -10]} intensity={0.5} color="#5C02FF" />
-      
-      <Background />
-      <GlowingSymbol />
-      <FloatingCards />
-    </>
+      {/* Decorative elements */}
+      <div className="absolute top-0 left-0 w-full h-full">
+        {/* Stars */}
+        <div className="stars">
+          {stars.map((star, i) => (
+            <div 
+              key={i}
+              className="absolute rounded-full bg-white animate-twinkle"
+              style={{
+                width: `${star.size}px`,
+                height: `${star.size}px`,
+                top: star.top,
+                left: star.left,
+                opacity: star.opacity,
+                animationDelay: `${star.delay}s`
+              }}
+            />
+          ))}
+        </div>
+        
+        {/* Card floating elements - each representing the different card types */}
+        <div className="absolute top-1/4 left-1/4 w-16 h-24 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-md shadow-lg opacity-70 transform rotate-12 animate-float" />
+        <div className="absolute top-1/3 right-1/4 w-16 h-24 bg-gradient-to-br from-red-500 to-red-700 rounded-md shadow-lg opacity-70 transform -rotate-6 animate-float-delayed" />
+        <div className="absolute bottom-1/3 left-1/3 w-16 h-24 bg-gradient-to-br from-blue-400 to-blue-600 rounded-md shadow-lg opacity-70 transform rotate-3 animate-float-slow" />
+        <div className="absolute bottom-1/4 right-1/3 w-16 h-24 bg-gradient-to-br from-purple-500 to-purple-700 rounded-md shadow-lg opacity-70 transform -rotate-12 animate-float-slower" />
+        
+        {/* Ram Chaal special card */}
+        <div className="absolute top-1/2 left-1/2 w-20 h-28 bg-gradient-to-br from-amber-300 to-amber-600 rounded-md shadow-xl opacity-80 transform -translate-x-1/2 -translate-y-1/2 rotate-6 animate-pulse-subtle" />
+      </div>
+    </div>
   );
 };
 
