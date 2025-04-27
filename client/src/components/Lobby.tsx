@@ -16,6 +16,7 @@ const Lobby = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [isFindingGame, setIsFindingGame] = useState(false);
+  const [isAIGame, setIsAIGame] = useState(false);
   const [generatedRoomCode, setGeneratedRoomCode] = useState("");
   
   const { 
@@ -37,7 +38,7 @@ const Lobby = () => {
       return;
     }
 
-    // Check URL params for create/join/random
+    // Check URL params for create/join/random/ai
     const params = new URLSearchParams(location.search);
     
     if (params.has("create")) {
@@ -52,6 +53,14 @@ const Lobby = () => {
     } else if (params.has("random")) {
       setIsFindingGame(true);
       handleFindRandomGame();
+    } else if (params.has("ai")) {
+      // If we already have a roomId from creating an AI room
+      const roomId = params.get("roomId");
+      if (roomId) {
+        setRoomCode(roomId);
+        setGeneratedRoomCode(roomId);
+        setIsCreating(true);
+      }
     }
   }, [location.search, navigate]);
 
@@ -135,6 +144,15 @@ const Lobby = () => {
 
   // Start the created game
   const handleStartGame = () => {
+    // Check if this is an AI game
+    const params = new URLSearchParams(location.search);
+    const isAIGame = params.has("ai");
+
+    // If it's an AI game, we need to emit the start_game event
+    if (isAIGame && socket) {
+      socket.emit("start_game", { roomId: generatedRoomCode });
+    }
+    
     navigate(`/game/${generatedRoomCode}`);
   };
 

@@ -173,13 +173,6 @@ const Home = () => {
               </Button>
               <Button 
                 variant="secondary" 
-                onClick={startAIGame}
-                className="py-6 text-lg font-semibold bg-green-600 hover:bg-green-700 text-white"
-              >
-                Play vs AI Opponents
-              </Button>
-              <Button 
-                variant="secondary" 
                 onClick={createRoom}
                 className="py-6 text-lg font-semibold"
               >
