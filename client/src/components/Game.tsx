@@ -206,6 +206,7 @@ const Game = () => {
             <WinnerPopup 
               winner={winner} 
               players={players}
+              winningPlayers={useGameStore(state => state.winningPlayers)}
               onNewGame={handleNewGame}
               onExit={handleExitGame}
             />
