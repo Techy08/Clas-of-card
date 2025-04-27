@@ -249,6 +249,18 @@ export class SocketManager {
           this.waitingForRandomMatch.splice(waitingIndex, 1);
         }
         
+        // Remove from random match queue
+        const queueIndex = this.randomMatchQueue.findIndex(p => p.socketId === socket.id);
+        if (queueIndex !== -1) {
+          this.randomMatchQueue.splice(queueIndex, 1);
+          log(`Player removed from random match queue`, "socket");
+        }
+        
+        // Remove from player socket map
+        if (this.playerSocketMap.has(socket.id)) {
+          this.playerSocketMap.delete(socket.id);
+        }
+        
         // Find and leave any rooms
         const roomId = this.findRoomIdBySocket(socket.id);
         if (roomId && this.rooms[roomId]) {
@@ -259,10 +271,26 @@ export class SocketManager {
             
             log(`${player.name} disconnected from room: ${roomId}`, "socket");
             
-            // If room is empty, delete it
-            if (this.rooms[roomId].players.length === 0) {
+            // If room is empty (no human players), delete it
+            const humanPlayers = this.rooms[roomId].players.filter(p => p.socketId);
+            if (humanPlayers.length === 0) {
               delete this.rooms[roomId];
               log(`Room deleted: ${roomId}`, "socket");
+            } 
+            // If game is active and some players left, add AI players to replace them
+            else if (this.rooms[roomId].state === GameState.ACTIVE && this.rooms[roomId].players.length < 4) {
+              // Fill empty slots with AI players
+              const aiCount = 4 - this.rooms[roomId].players.length;
+              const aiNames = ["R.1", "P10", "R.0"];
+              
+              for (let i = 0; i < aiCount; i++) {
+                this.rooms[roomId].addAIPlayer(aiNames[i]);
+              }
+              
+              log(`Added ${aiCount} AI players to room ${roomId} to replace disconnected players`, "socket");
+              
+              // Update all players
+              this.io.to(roomId).emit("game_state_update", this.rooms[roomId].getRoomState());
             }
           }
         }
@@ -351,6 +379,114 @@ export class SocketManager {
       }
     }
     return null;
+  }
+  
+  // Create a random match with players from the queue
+  private createRandomMatch(): void {
+    // Take 4 players from the queue
+    const matchPlayers = this.randomMatchQueue.splice(0, 4);
+    
+    if (matchPlayers.length !== 4) {
+      log('Error: Not enough players to create a match', 'socket');
+      return;
+    }
+    
+    // Create a new room
+    const roomId = nanoid(6).toUpperCase();
+    this.rooms[roomId] = new GameRoom(roomId);
+    
+    // Add players to the room
+    for (const player of matchPlayers) {
+      const socket = this.io.sockets.sockets.get(player.socketId);
+      if (socket) {
+        const newPlayer = this.rooms[roomId].addPlayer(player.playerName, player.socketId);
+        socket.join(roomId);
+        
+        // Track the player's room
+        this.playerSocketMap.set(player.socketId, roomId);
+        
+        // Notify player about the match
+        socket.emit("random_match_found", { 
+          success: true, 
+          roomId,
+          playerId: newPlayer.id
+        });
+      }
+    }
+    
+    // Start the game immediately
+    const gameState = this.rooms[roomId].startGame();
+    
+    // Emit game state to all players
+    this.io.to(roomId).emit("game_state_update", this.rooms[roomId].getRoomState());
+    
+    log(`Random match created with room ID: ${roomId}`, 'socket');
+    
+    // Handle AI turns if necessary
+    const startingPlayer = this.rooms[roomId].players.find(p => p.id === gameState.startPlayerId);
+    if (startingPlayer && startingPlayer.isAI) {
+      setTimeout(() => {
+        this.handleAITurn(roomId, gameState.startPlayerId);
+      }, 2000);
+    }
+  }
+  
+  // Fill a match with AI players when not enough human players
+  private fillRandomMatchWithAI(): void {
+    // If we have at least one player in queue, create a match with AI players
+    if (this.randomMatchQueue.length > 0) {
+      // Create a new room
+      const roomId = nanoid(6).toUpperCase();
+      this.rooms[roomId] = new GameRoom(roomId);
+      
+      // Take all waiting players (up to 3)
+      const humanPlayers = this.randomMatchQueue.splice(0, 3);
+      log(`Creating match with ${humanPlayers.length} human players and filling with AI`, 'socket');
+      
+      // Add human players to room
+      for (const player of humanPlayers) {
+        const socket = this.io.sockets.sockets.get(player.socketId);
+        if (socket) {
+          const newPlayer = this.rooms[roomId].addPlayer(player.playerName, player.socketId);
+          socket.join(roomId);
+          
+          // Track the player's room
+          this.playerSocketMap.set(player.socketId, roomId);
+          
+          // Notify player about the match
+          socket.emit("random_match_found", { 
+            success: true, 
+            roomId,
+            playerId: newPlayer.id,
+            withAI: true
+          });
+        }
+      }
+      
+      // Fill remaining slots with AI players (need 4 total)
+      const aiPlayerCount = 4 - humanPlayers.length;
+      const aiNames = ["R.1", "P10", "R.0"];
+      
+      for (let i = 0; i < aiPlayerCount; i++) {
+        this.rooms[roomId].addAIPlayer(aiNames[i]);
+      }
+      
+      // Start the game immediately
+      const gameState = this.rooms[roomId].startGame();
+      
+      // Emit game state to all players
+      this.io.to(roomId).emit("game_state_update", this.rooms[roomId].getRoomState());
+      
+      log(`Match created with ${humanPlayers.length} humans and ${aiPlayerCount} AI with room ID: ${roomId}`, 'socket');
+      
+      // Handle AI turns if necessary
+      const startingPlayer = this.rooms[roomId].players.find(p => p.id === gameState.startPlayerId);
+      if (startingPlayer && startingPlayer.isAI) {
+        setTimeout(() => {
+          this.handleAITurn(roomId, gameState.startPlayerId);
+        }, 2000);
+      }
+    }
   }
   
   // Handle AI turn logic with more advanced decision making

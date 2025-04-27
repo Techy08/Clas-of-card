@@ -9,6 +9,8 @@ export class GameRoom {
   round: number;
   roundStartPlayerId: number | null;
   winner: Player | null;
+  winningPlayers: Player[];  // Track all players who have won
+  finishedPositions: number[]; // Track positions that have been filled (1st, 2nd, 3rd)
   
   constructor(id: string) {
     this.id = id;
@@ -18,6 +20,8 @@ export class GameRoom {
     this.round = 0;
     this.roundStartPlayerId = null;
     this.winner = null;
+    this.winningPlayers = [];
+    this.finishedPositions = [];
   }
   
   // Add player to the room
@@ -129,11 +133,65 @@ export class GameRoom {
   
   // Check if any player has won
   checkForWinner(): Player | null {
-    const winner = checkWinningCondition(this.players, this.round);
+    // Check for a winning player who hasn't already won
+    const activePlayers = this.players.filter(p => !this.winningPlayers.includes(p));
+    const winner = checkWinningCondition(activePlayers, this.round);
     
     if (winner) {
-      this.winner = winner;
-      this.state = GameState.ENDED;
+      // Add to winning players list
+      this.winningPlayers.push(winner);
+      
+      // Determine position (1st, 2nd, or 3rd)
+      const position = this.winningPlayers.length;
+      this.finishedPositions.push(position);
+      
+      // Update player with winning info
+      winner.position = position;
+      
+      // If this is the first winner, set it as the main winner
+      if (position === 1) {
+        this.winner = winner;
+      }
+      
+      // Remove player from active turns
+      const remainingPlayers = this.players.filter(p => 
+        !this.winningPlayers.includes(p) && 
+        p.id !== winner.id
+      );
+      
+      // If 3 players have won (positions 1-3), the remaining player is the loser
+      if (this.winningPlayers.length === 3 && remainingPlayers.length === 1) {
+        const loser = remainingPlayers[0];
+        loser.position = 4; // 4th position (loser)
+        this.state = GameState.ENDED;
+      }
+      // If all players have won, end the game
+      else if (this.winningPlayers.length === this.players.length) {
+        this.state = GameState.ENDED;
+      }
+      // Otherwise, adjust game flow to skip the winning player
+      else {
+        // If it was the winner's turn, move to the next player
+        if (this.currentTurn === winner.id) {
+          // Find next active player
+          let nextPlayerIndex = this.players.findIndex(p => p.id === winner.id) + 1;
+          
+          // Find the next player who hasn't won yet
+          while (true) {
+            if (nextPlayerIndex >= this.players.length) {
+              nextPlayerIndex = 0;
+            }
+            
+            const nextPlayer = this.players[nextPlayerIndex];
+            if (!this.winningPlayers.includes(nextPlayer)) {
+              this.currentTurn = nextPlayer.id;
+              break;
+            }
+            
+            nextPlayerIndex++;
+          }
+        }
+      }
     }
     
     return winner;
