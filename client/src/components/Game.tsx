@@ -118,9 +118,17 @@ const Game = () => {
   }, [isGameOver, playWinSound]);
   
   // Handle new game
-  const handleNewGame = () => {
+  const handleNewGame = async () => {
     resetGame();
-    startGame();
+    
+    // For solo mode, we need to set up the AI players again
+    if (isSoloMode) {
+      const playerName = localStorage.getItem("playerName") || "Player";
+      await startAiGame(playerName);
+    } else {
+      // For multiplayer, simply start the game with existing players
+      startGame();
+    }
   };
 
   return (
