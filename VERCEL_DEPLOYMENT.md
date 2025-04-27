@@ -15,14 +15,36 @@ This guide will help you deploy the RamSita card game to Vercel's serverless pla
 Make sure you have your PostgreSQL database ready and accessible from the internet. You'll need the following information:
 - Database connection string (format: `postgresql://username:password@hostname:port/database`)
 
-### 2. Prepare Your Codebase
+### 2. Set up Environment Variables
+
+For the game to function correctly, you'll need to set up these environment variables in your Vercel project:
+
+1. **Database Configuration**
+   - `DATABASE_URL`: Your PostgreSQL connection string (format: `postgresql://username:password@hostname:port/database`)
+
+2. **API Keys**
+   - `GEMINI_API_KEY`: Your Google Gemini API key (required for AI player functionality)
+   
+   To get a Gemini API key:
+   1. Go to https://makersuite.google.com/app/apikey
+   2. Sign in with your Google account
+   3. Click "Create API Key" and follow the prompts
+   4. Copy the generated key to your Vercel environment variables
+
+3. **Environment Settings**
+   - `NODE_ENV`: Set to `production` for optimized performance
+   - `VERCEL_URL`: Automatically set by Vercel during deployment
+
+### 3. Prepare Your Codebase
 
 The codebase has been optimized for Vercel deployment with:
-- `vercel.json` configuration file
+- `vercel.json` configuration file with proper routing and headers
 - Optimized Socket.IO settings for serverless environments
 - Updated database connection pool settings for serverless functions
-- CORS settings for cross-origin requests
+- Enhanced CORS settings for cross-origin requests
 - Adaptive transport strategy for socket connections
+- Audio compatibility improvements for cross-origin playback on CDNs
+- Proper fallbacks for browser autoplay restrictions
 
 #### Build Output Structure
 
@@ -102,6 +124,20 @@ This project includes custom build scripts to simplify the Vercel deployment pro
 
 ## Troubleshooting
 
+### Audio Not Playing in Production
+
+Audio autoplay is restricted in many browsers, especially on mobile devices. In the deployed version:
+
+1. First-time users must interact with the page (click, tap, or keypress) before audio will play
+2. If background music or sound effects don't play:
+   - Check the browser console for autoplay policy errors
+   - Ensure the user has interacted with the page at least once
+   - The app includes built-in fallbacks that will attempt to play audio after user interaction
+3. For iOS Safari and some mobile browsers:
+   - Audio may only play after a direct user gesture (tap)
+   - Background audio might be interrupted when the device is locked or the app goes to background
+4. The "cross-origin" attribute has been added to audio elements for better CDN compatibility
+
 ### Socket.IO Connection Issues
 
 If you experience issues with Socket.IO connections:
@@ -111,6 +147,7 @@ If you experience issues with Socket.IO connections:
 3. Make sure CORS settings are allowing your client domain
 4. If using WebSocket transport, ensure your Vercel project has WebSockets enabled
 5. Try switching to polling transport by modifying the client socket connection options
+6. Serverless Socket.IO can experience cold start delays - the first connection might take longer
 
 ### Database Connection Issues
 

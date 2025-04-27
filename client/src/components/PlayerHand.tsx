@@ -62,26 +62,32 @@ const PlayerHand = ({
       {/* Cards Container */}
       <div className="relative flex justify-center items-center">
         <div className="relative w-40 h-40 flex items-center justify-center">
-          {player.hand.map((card, index) => (
-            <Card
-              key={`${player.id}-card-${card.id}`}
-              card={card}
-              index={index}
-              isSelected={selectedCard === card.id && isCurrentPlayer}
-              isHidden={!showCards}
-              onClick={() => {
-                if (isCurrentPlayer && isCurrentTurn) {
-                  playCardFlip(); // Play card flip sound
-                  onSelectCard?.(card.id);
-                }
-              }}
-              className={cn(
-                "absolute",
-                isCurrentPlayer && !isCurrentTurn && "pointer-events-none",
-                isCurrentPlayer && isCurrentTurn && "cursor-pointer"
-              )}
-            />
-          ))}
+          {player.hand.map((card, index) => {
+            // Create a truly unique key using both player ID and a guaranteed unique card identifier
+            // This ensures no duplicate keys even if card IDs are reused across players
+            const uniqueCardKey = `player-${player.id}-card-${card.id}-index-${index}`;
+            
+            return (
+              <Card
+                key={uniqueCardKey}
+                card={card}
+                index={index}
+                isSelected={selectedCard === card.id && isCurrentPlayer}
+                isHidden={!showCards}
+                onClick={() => {
+                  if (isCurrentPlayer && isCurrentTurn) {
+                    playCardFlip(); // Play card flip sound
+                    onSelectCard?.(card.id);
+                  }
+                }}
+                className={cn(
+                  "absolute",
+                  isCurrentPlayer && !isCurrentTurn && "pointer-events-none",
+                  isCurrentPlayer && isCurrentTurn && "cursor-pointer"
+                )}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

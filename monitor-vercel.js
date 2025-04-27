@@ -1,8 +1,9 @@
-// Monitoring script for deployed Vercel applications
-// This script helps check the health of your deployed app
+// Monitoring script for deployed RamSita: Clash of Cards game on Vercel
+// This script helps check the health of your deployed app and tests critical endpoints
 
 const https = require('https');
 const readline = require('readline');
+const { performance } = require('perf_hooks');
 
 // Create readline interface for CLI
 const rl = readline.createInterface({
@@ -10,8 +11,21 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
+// ANSI color codes for output formatting
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+};
+
 // Default URL to monitor (replace with your Vercel deployment URL)
-let deploymentUrl = 'https://your-app-name.vercel.app';
+let deploymentUrl = 'https://ramsita-clash-of-cards.vercel.app';
 
 console.log('==================================');
 console.log('Vercel Deployment Monitoring Tool');
@@ -73,17 +87,39 @@ function showHelp() {
 
 // Function to check the health of the deployed application
 function runHealthCheck() {
-  const startTime = Date.now();
+  const startTime = performance.now();
   
-  // Test the base URL
-  checkEndpoint(deploymentUrl, '/', 'Base URL');
+  console.log(`\n${colors.bright}Running health check for RamSita: Clash of Cards${colors.reset}`);
+  console.log(`${colors.dim}----------------------------------------------${colors.reset}`);
   
-  // Test the API endpoint
-  checkEndpoint(deploymentUrl, '/api/leaderboard', 'API Endpoint');
+  // Test critical endpoints
   
-  // Report timestamp
+  // 1. Main app (HTML delivery)
+  checkEndpoint(deploymentUrl, '/', 'Frontend App');
+  
+  // 2. API endpoints
+  checkEndpoint(deploymentUrl, '/api/leaderboard', 'Leaderboard API');
+  
+  // 3. Socket.IO endpoint (just checking if it responds, not actual connection)
+  checkEndpoint(deploymentUrl, '/socket.io/', 'Socket.IO');
+  
+  // 4. Static assets (check a critical JS file)
+  checkEndpoint(deploymentUrl, '/assets/index.js', 'Frontend Assets');
+  
+  // 5. Database-dependent API
+  setTimeout(() => {
+    checkEndpoint(deploymentUrl, '/api/users/123', 'Database API');
+  }, 500); // Small delay to avoid rate limiting
+  
+  // Report total check time
+  const totalTime = Math.round(performance.now() - startTime);
   const date = new Date();
-  console.log(`\nLast check: ${date.toLocaleTimeString()} (${date.toLocaleDateString()})\n`);
+  
+  setTimeout(() => {
+    console.log(`\n${colors.dim}Check completed in ${totalTime}ms${colors.reset}`);
+    console.log(`${colors.dim}Last check: ${date.toLocaleTimeString()} (${date.toLocaleDateString()})${colors.reset}`);
+    console.log(`${colors.dim}Type 'help' for available commands${colors.reset}\n`);
+  }, 1000); // Give time for all checks to complete
 }
 
 // Function to check a specific endpoint
