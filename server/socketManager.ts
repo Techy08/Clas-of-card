@@ -46,27 +46,16 @@ export class SocketManager {
           
           // If AI players are requested, add them
           if (withAI) {
-            // Add 3 AI players with default names for now (will be updated with Gemini later)
-            this.rooms[roomId].addAIPlayer("R.9");
-            this.rooms[roomId].addAIPlayer("R.O");
+            // Add 3 AI players with specific names as requested
+            this.rooms[roomId].addAIPlayer("R.1");
             this.rooms[roomId].addAIPlayer("P10");
+            this.rooms[roomId].addAIPlayer("R.0");
             
-            // Update AI names using Gemini in the background
-            getAIPlayerNameSuggestions(3).then(names => {
-              if (this.rooms[roomId]) {
-                const aiPlayers = this.rooms[roomId].players.filter(p => p.isAI);
-                
-                // Update AI player names
-                for (let i = 0; i < Math.min(aiPlayers.length, names.length); i++) {
-                  aiPlayers[i].name = names[i];
-                }
-                
-                // Send updated state to the player
-                this.io.to(roomId).emit("game_state_update", this.rooms[roomId].getRoomState());
-              }
-            }).catch(err => {
-              log(`Error getting AI player names: ${err}`, "socket");
-            });
+            // No need to update names - they're fixed
+            log(`Added AI players with names R.1, P10, and R.0 to room ${roomId}`, "socket");
+            
+            // Send updated state to the player
+            this.io.to(roomId).emit("game_state_update", this.rooms[roomId].getRoomState());
           }
           
           log(`Room created: ${roomId} by ${playerName} ${withAI ? 'with AI players' : ''}`, "socket");

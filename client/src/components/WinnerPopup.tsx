@@ -3,6 +3,8 @@ import { Button } from "./ui/button";
 import { Player } from "@/lib/types";
 import Card from "./Card";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import GameRewards from "./GameRewards";
 
 interface WinnerPopupProps {
   winner: Player | null;
@@ -12,6 +14,12 @@ interface WinnerPopupProps {
 }
 
 const WinnerPopup = ({ winner, players, onNewGame, onExit }: WinnerPopupProps) => {
+  const [showRewards, setShowRewards] = useState(false);
+  
+  const handleViewRewards = () => {
+    setShowRewards(true);
+  };
+  
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -100,7 +108,7 @@ const WinnerPopup = ({ winner, players, onNewGame, onExit }: WinnerPopupProps) =
           <Button 
             variant="outline" 
             onClick={onExit}
-            className="sm:order-1"
+            className="sm:order-2"
           >
             Exit to Menu
           </Button>
@@ -110,8 +118,26 @@ const WinnerPopup = ({ winner, players, onNewGame, onExit }: WinnerPopupProps) =
           >
             Play Again
           </Button>
+          {winner && (
+            <Button 
+              variant="secondary" 
+              onClick={handleViewRewards}
+              className="sm:order-1 bg-yellow-500 hover:bg-yellow-600 text-white"
+            >
+              View Rewards
+            </Button>
+          )}
         </div>
       </motion.div>
+      
+      {/* Game Rewards Modal */}
+      {showRewards && winner && (
+        <GameRewards 
+          winner={winner} 
+          players={players} 
+          onClose={() => setShowRewards(false)} 
+        />
+      )}
     </motion.div>
   );
 };

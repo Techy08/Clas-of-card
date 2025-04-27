@@ -61,8 +61,8 @@ export const getCardColor = (cardType: CardType) => {
     },
   ];
   
-  // Randomly select a color set (changes each time the app is loaded)
-  const colorSet = colorSets[Math.floor(Math.random() * colorSets.length)];
+  // Using a consistent color set instead of random
+  const colorSet = colorSets[0]; // Always use the first (light) color set
   
   return colorSet[cardType];
 };
