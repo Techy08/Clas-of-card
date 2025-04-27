@@ -20,6 +20,8 @@ export const createAiPlayers = (count: number): Player[] => {
 export const startAiGame = async (playerName: string): Promise<void> => {
   const gameStore = useGameStore.getState();
   
+  console.log("Starting AI game with player:", playerName);
+  
   // Create player
   const player: Player = {
     id: 0,
@@ -31,33 +33,41 @@ export const startAiGame = async (playerName: string): Promise<void> => {
   
   // Create AI players (3)
   const aiPlayers = createAiPlayers(3);
+  console.log("Created AI players:", aiPlayers.map(p => p.name).join(", "));
   
   // Initialize game with all players
   const players = [player, ...aiPlayers];
   gameStore.initGame(players, 0);
   
-  // Start the game
-  gameStore.startGame();
-  
-  // Set up AI turn handling
+  // Set up AI turn handling first to make sure it's ready when the game starts
   setupAiTurnHandling();
+  
+  // Start the game
+  console.log("Starting game with players:", players.map(p => p.name).join(", "));
+  gameStore.startGame();
 };
 
 // Handle AI turns
 const setupAiTurnHandling = () => {
+  console.log("Setting up AI turn handling...");
+  
   // Subscribe to turn changes
   useGameStore.subscribe(
     state => state.currentTurn,
-    (currentTurn) => {
+    (currentTurnIndex) => {
       const { players, isGameOver } = useGameStore.getState();
       
       // If game is over, don't process AI turns
       if (isGameOver) return;
       
-      const currentPlayer = players[currentTurn];
+      // Find the current player by index
+      const currentPlayer = players.find((_, idx) => idx === currentTurnIndex);
+      
+      console.log(`Current turn: ${currentTurnIndex}, Player: ${currentPlayer?.name}, isAI: ${currentPlayer?.isAI}`);
       
       // If it's an AI's turn
       if (currentPlayer && currentPlayer.isAI) {
+        console.log(`AI ${currentPlayer.name}'s turn - preparing to pass card...`);
         // Add a slight delay to make it feel more natural
         setTimeout(() => {
           handleAiTurn(currentPlayer);
@@ -69,16 +79,28 @@ const setupAiTurnHandling = () => {
 
 // Process AI turn
 const handleAiTurn = (aiPlayer: Player) => {
-  const { players, passTurn } = useGameStore.getState();
+  const gameStore = useGameStore.getState();
+  const { players, passTurn } = gameStore;
   
-  // Get the next player ID
-  const nextPlayerId = (aiPlayer.id + 1) % players.length;
+  // Get the next player ID - ensure we handle players array length properly
+  const currentPlayerIdx = players.findIndex(p => p.id === aiPlayer.id);
+  const nextPlayerIdx = (currentPlayerIdx + 1) % players.length;
+  const nextPlayerId = players[nextPlayerIdx].id;
   
   // Select best card to pass using enhanced strategic logic
   const cardToPass = getBestCardToPass(aiPlayer.hand);
   
-  console.log(`AI ${aiPlayer.name} passing card ${cardToPass.type} to next player`);
+  console.log(`AI ${aiPlayer.name} (id: ${aiPlayer.id}) passing card ${cardToPass.type} to next player ${players[nextPlayerIdx].name} (id: ${nextPlayerId})`);
   
-  // Pass the card
-  passTurn(cardToPass.id, nextPlayerId);
+  // Temporarily override myPlayerId to the AI's ID so that passTurn works correctly
+  const originalMyPlayerId = gameStore.myPlayerId;
+  gameStore.updateGameState({ myPlayerId: aiPlayer.id });
+  
+  // Pass the card with a small delay to make it visible to the player
+  setTimeout(() => {
+    passTurn(cardToPass.id, nextPlayerId);
+    
+    // Restore the original player ID
+    gameStore.updateGameState({ myPlayerId: originalMyPlayerId });
+  }, 800);
 };

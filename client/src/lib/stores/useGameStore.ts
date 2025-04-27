@@ -77,10 +77,15 @@ export const useGameStore = create<GameStoreState>()(
       // Deal cards to players
       const { updatedPlayers, startPlayerId } = dealCards(players);
       
+      // Find the index of the player with the Ram Chaal card
+      const startPlayerIndex = updatedPlayers.findIndex(p => p.id === startPlayerId);
+      
+      console.log(`Game starting with player ${updatedPlayers[startPlayerIndex]?.name} (index: ${startPlayerIndex})`);
+      
       // Set starting player (the one with Ram Chaal card)
       set({
         players: updatedPlayers,
-        currentTurn: startPlayerId,
+        currentTurn: startPlayerIndex, // Use index instead of ID for tracking turns
         roundStartPlayerId: startPlayerId,
       });
       
@@ -115,13 +120,31 @@ export const useGameStore = create<GameStoreState>()(
     passTurn: (cardId, targetPlayerId) => {
       const { players, myPlayerId, round, roundStartPlayerId } = get();
       
+      console.log(`Passing card ${cardId} from player ${myPlayerId} to player ${targetPlayerId}`);
+      
       // Find current player and card
       const currentPlayer = players.find(p => p.id === myPlayerId);
-      if (!currentPlayer) return;
+      if (!currentPlayer) {
+        console.error("Current player not found!");
+        return;
+      }
       
       // Find the card being passed
       const cardToPass = currentPlayer.hand.find(c => c.id === cardId);
-      if (!cardToPass) return;
+      if (!cardToPass) {
+        console.error("Card to pass not found!");
+        return;
+      }
+      
+      // Find target player
+      const targetPlayer = players.find(p => p.id === targetPlayerId);
+      if (!targetPlayer) {
+        console.error("Target player not found!");
+        return;
+      }
+      
+      // Get indices for players
+      const targetPlayerIndex = players.findIndex(p => p.id === targetPlayerId);
       
       // Remove card from current player's hand
       const updatedCurrentPlayerHand = currentPlayer.hand.filter(c => c.id !== cardId);
@@ -150,13 +173,16 @@ export const useGameStore = create<GameStoreState>()(
       let newRound = round;
       if (targetPlayerId === roundStartPlayerId) {
         newRound += 1;
+        console.log(`Completed round ${round}, starting round ${newRound}`);
       }
+      
+      console.log(`Setting current turn to index ${targetPlayerIndex} (player ID: ${targetPlayerId})`);
       
       // Update state
       set({
         players: updatedPlayers,
         playerHand: updatedCurrentPlayerHand,
-        currentTurn: targetPlayerId,
+        currentTurn: targetPlayerIndex, // Use index instead of ID
         selectedCard: null,
         round: newRound,
       });
