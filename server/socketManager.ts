@@ -708,13 +708,23 @@ export class SocketManager {
         let nextPlayerIndex = (currentPlayerIndex + 1) % room.players.length;
         
         // Skip players who have already won
-        while (room.winningPlayers.includes(room.players[nextPlayerIndex])) {
+        while (
+          nextPlayerIndex < room.players.length && 
+          room.players[nextPlayerIndex] && 
+          room.winningPlayers.includes(room.players[nextPlayerIndex])
+        ) {
           nextPlayerIndex = (nextPlayerIndex + 1) % room.players.length;
           
           // Safety check to prevent infinite loop if all other players have won
           if (nextPlayerIndex === currentPlayerIndex) {
             break;
           }
+        }
+        
+        // Additional safety check
+        if (nextPlayerIndex >= room.players.length || !room.players[nextPlayerIndex]) {
+          log(`Invalid next player index: ${nextPlayerIndex}`, "socket");
+          return;
         }
         
         nextPlayerId = room.players[nextPlayerIndex].id;

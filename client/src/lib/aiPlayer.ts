@@ -83,7 +83,11 @@ const executeAIMove = (aiPlayer: Player) => {
   let nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
   
   // Skip players who have already won (have a winningSet)
-  while (players[nextPlayerIndex].winningSet !== null) {
+  while (
+    nextPlayerIndex < players.length && 
+    players[nextPlayerIndex] && 
+    players[nextPlayerIndex].winningSet !== null
+  ) {
     nextPlayerIndex = (nextPlayerIndex + 1) % players.length;
     
     // Safety check to prevent infinite loop if all players have won
@@ -91,6 +95,12 @@ const executeAIMove = (aiPlayer: Player) => {
       console.log("All other players have won, no valid target to pass card to");
       return;
     }
+  }
+  
+  // Additional safety check
+  if (nextPlayerIndex >= players.length || !players[nextPlayerIndex]) {
+    console.error("Invalid next player index:", nextPlayerIndex);
+    return;
   }
   
   const nextPlayerId = players[nextPlayerIndex].id;

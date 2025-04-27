@@ -219,7 +219,7 @@ export class GameRoom {
             }
             
             const nextPlayer = this.players[nextPlayerIndex];
-            if (!this.winningPlayers.includes(nextPlayer)) {
+            if (nextPlayer && !this.winningPlayers.includes(nextPlayer)) {
               this.currentTurn = nextPlayer.id;
               break;
             }
