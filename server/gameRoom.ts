@@ -60,8 +60,25 @@ export class GameRoom {
   }
   
   // Remove player from the room
-  removePlayer(socketId: string): Player | undefined {
-    const playerIndex = this.players.findIndex(p => p.socketId === socketId);
+  removePlayer(idOrSocketId: string | number): Player | undefined {
+    let playerIndex = -1;
+    
+    // Check if it's a socket ID or player ID
+    if (typeof idOrSocketId === 'string') {
+      // Try to match by socket ID first
+      playerIndex = this.players.findIndex(p => p.socketId === idOrSocketId);
+      
+      // If no match, try to parse as a player ID number
+      if (playerIndex === -1) {
+        const parsedId = parseInt(idOrSocketId);
+        if (!isNaN(parsedId)) {
+          playerIndex = this.players.findIndex(p => p.id === parsedId);
+        }
+      }
+    } else {
+      // It's a numeric player ID
+      playerIndex = this.players.findIndex(p => p.id === idOrSocketId);
+    }
     
     if (playerIndex === -1) {
       return undefined;

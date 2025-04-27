@@ -34,6 +34,16 @@ export class SocketManager {
 
   // Initialize socket handlers
   private initialize(): void {
+    // Configure Socket.IO for better reliability (if possible)
+    try {
+      if (this.io.engine) {
+        this.io.engine.pingTimeout = 30000; // 30 seconds
+        this.io.engine.pingInterval = 10000; // 10 seconds
+      }
+    } catch (error) {
+      console.error("Could not configure Socket.IO engine settings:", error);
+    }
+    
     this.io.on("connection", (socket: Socket) => {
       log(`Client connected: ${socket.id}`, "socket");
 
@@ -295,8 +305,8 @@ export class SocketManager {
       });
 
       // Disconnect
-      socket.on("disconnect", () => {
-        log(`Client disconnected: ${socket.id}`, "socket");
+      socket.on("disconnect", (reason) => {
+        log(`Client disconnected: ${socket.id}, reason: ${reason}`, "socket");
         
         // Remove from random match waiting list
         const waitingIndex = this.waitingForRandomMatch.indexOf(socket.id);
@@ -311,42 +321,68 @@ export class SocketManager {
           log(`Player removed from random match queue`, "socket");
         }
         
-        // Remove from player socket map
-        if (this.playerSocketMap.has(socket.id)) {
-          this.playerSocketMap.delete(socket.id);
-        }
-        
-        // Find and leave any rooms
+        // Find player's room
         const roomId = this.findRoomIdBySocket(socket.id);
         if (roomId && this.rooms[roomId]) {
-          const player = this.rooms[roomId].removePlayer(socket.id);
+          // Don't remove the player on disconnect but mark their socket as disconnected
+          // This allows them to reconnect to the same game later
+          const playerIndex = this.rooms[roomId].players.findIndex(p => p.socketId === socket.id);
           
-          if (player) {
-            socket.to(roomId).emit("player_left", player.id);
+          if (playerIndex !== -1) {
+            const player = this.rooms[roomId].players[playerIndex];
+            log(`${player.name} disconnected from room: ${roomId}, preserving player data for reconnection`, "socket");
             
-            log(`${player.name} disconnected from room: ${roomId}`, "socket");
+            // Keep the player in the game but mark their socket as null
+            // This allows them to reconnect when they come back
+            this.rooms[roomId].players[playerIndex].socketId = null;
             
-            // If room is empty (no human players), delete it
-            const humanPlayers = this.rooms[roomId].players.filter(p => p.socketId);
-            if (humanPlayers.length === 0) {
-              delete this.rooms[roomId];
-              log(`Room deleted: ${roomId}`, "socket");
-            } 
-            // If game is active and some players left, add AI players to replace them
-            else if (this.rooms[roomId].state === GameState.ACTIVE && this.rooms[roomId].players.length < 4) {
-              // Fill empty slots with AI players
-              const aiCount = 4 - this.rooms[roomId].players.length;
-              const aiNames = ["R.1", "P10", "R.0"];
-              
-              for (let i = 0; i < aiCount; i++) {
-                this.rooms[roomId].addAIPlayer(aiNames[i]);
+            // Notify other players
+            socket.to(roomId).emit("player_disconnected", player.id);
+            
+            // Start a cleanup timer in case they don't come back
+            setTimeout(() => {
+              // Check if the player is still disconnected
+              if (this.rooms[roomId] && 
+                  this.rooms[roomId].players[playerIndex] && 
+                  this.rooms[roomId].players[playerIndex].socketId === null) {
+                
+                // Now remove them permanently
+                const removedPlayer = this.rooms[roomId].removePlayer(player.id.toString());
+                
+                if (removedPlayer) {
+                  this.io.to(roomId).emit("player_left", removedPlayer.id);
+                  log(`${removedPlayer.name} permanently removed from room ${roomId} after timeout`, "socket");
+                  
+                  // If room is empty (no human players), delete it
+                  const humanPlayers = this.rooms[roomId].players.filter(p => p.socketId || p.socketId === null);
+                  if (humanPlayers.length === 0) {
+                    delete this.rooms[roomId];
+                    log(`Room deleted: ${roomId}`, "socket");
+                  }
+                }
               }
-              
-              log(`Added ${aiCount} AI players to room ${roomId} to replace disconnected players`, "socket");
-              
-              // Update all players
-              this.io.to(roomId).emit("game_state_update", this.rooms[roomId].getRoomState());
+            }, 60000); // 1 minute timeout to actually remove disconnected players
+          }
+          
+          // Only remove from player socket map when disconnected
+          if (this.playerSocketMap.has(socket.id)) {
+            this.playerSocketMap.delete(socket.id);
+          }
+          
+          // If game is active and some players left, add AI players to replace them
+          if (this.rooms[roomId] && this.rooms[roomId].state === GameState.ACTIVE && this.rooms[roomId].players.length < 4) {
+            // Fill empty slots with AI players
+            const aiCount = 4 - this.rooms[roomId].players.length;
+            const aiNames = ["R.1", "P10", "R.0"];
+            
+            for (let i = 0; i < aiCount; i++) {
+              this.rooms[roomId].addAIPlayer(aiNames[i]);
             }
+            
+            log(`Added ${aiCount} AI players to room ${roomId} to replace disconnected players`, "socket");
+            
+            // Update all players
+            this.io.to(roomId).emit("game_state_update", this.rooms[roomId].getRoomState());
           }
         }
       });

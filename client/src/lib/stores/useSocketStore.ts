@@ -24,9 +24,23 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   
   // Initialize socket connection
   initializeSocket: () => {
-    // If socket already exists, don't recreate
-    if (get().socket) {
-      return;
+    // If socket already exists, don't recreate - but check if it's connected
+    const existingSocket = get().socket;
+    if (existingSocket) {
+      if (existingSocket.connected) {
+        return; // Already connected, nothing to do
+      } else {
+        // Socket exists but is disconnected, let's try to reconnect it
+        try {
+          existingSocket.connect();
+          return;
+        } catch (error) {
+          console.error("Failed to reconnect existing socket, creating new one:", error);
+          // Continue to create a new socket
+          existingSocket.removeAllListeners();
+          existingSocket.disconnect();
+        }
+      }
     }
     
     // Create socket connection with better reconnection settings
@@ -34,15 +48,16 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       transports: ["websocket", "polling"], // Fallback to polling if websocket fails
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 20, // Increased to 20 attempts
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 20000, // Increased connection timeout
+      timeout: 30000, // Increased to 30 seconds
+      forceNew: true, // Force a new connection
     });
     
     // Set up event listeners
     socket.on("connect", () => {
-      console.log("Socket connected");
+      console.log("Socket connected successfully");
       set({ isConnected: true });
       
       // If we were in a room before disconnection, try to rejoin
@@ -51,22 +66,41 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       
       if (roomId) {
         console.log("Attempting to reconnect to room:", roomId);
-        socket.emit("rejoin_room", { roomId, playerName: storedName }, (response: { success: boolean }) => {
-          if (!response.success) {
-            // If rejoin fails, clear the roomId
-            set({ roomId: null });
-          }
-        });
+        
+        // Use a timeout to ensure server has time to register the connection
+        setTimeout(() => {
+          socket.emit("rejoin_room", { roomId, playerName: storedName }, (response: { success: boolean, error?: string }) => {
+            if (response.success) {
+              console.log("Successfully rejoined room:", roomId);
+            } else {
+              console.error("Failed to rejoin room:", response.error);
+              // If rejoin fails, clear the roomId
+              set({ roomId: null });
+            }
+          });
+        }, 500);
       }
     });
     
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected");
+    socket.on("disconnect", (reason) => {
+      console.log("Socket disconnected, reason:", reason);
       set({ isConnected: false });
+      
+      // If the server disconnected us, try to reconnect automatically
+      if (reason === "io server disconnect") {
+        console.log("Server disconnected us, attempting to reconnect...");
+        socket.connect();
+      }
     });
     
     socket.on("connect_error", (error) => {
       console.error("Socket connection error:", error);
+      
+      // Try to switch transport if connection fails
+      if (socket.io.engine?.transport.name === "websocket") {
+        console.log("WebSocket transport failed, falling back to polling");
+        socket.io.engine.transport.close();
+      }
     });
     
     socket.on("error", (error) => {
@@ -75,6 +109,9 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     
     socket.io.on("reconnect", (attempt) => {
       console.log(`Socket reconnected after ${attempt} attempts`);
+      
+      // Update our connected state
+      set({ isConnected: true });
     });
     
     socket.io.on("reconnect_attempt", (attempt) => {
@@ -86,7 +123,23 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     });
     
     socket.io.on("reconnect_failed", () => {
-      console.error("Socket reconnection failed");
+      console.error("Socket reconnection failed after all attempts");
+      
+      // Create a completely new socket connection as a last resort
+      if (get().socket === socket) {
+        console.log("Creating a new socket connection after reconnection failure");
+        socket.removeAllListeners();
+        socket.disconnect();
+        
+        // Slight delay before recreating
+        setTimeout(() => {
+          if (get().socket === socket) {
+            // Only create new if this socket is still the current one
+            set({ socket: null });
+            get().initializeSocket();
+          }
+        }, 1000);
+      }
     });
     
     // Game events
