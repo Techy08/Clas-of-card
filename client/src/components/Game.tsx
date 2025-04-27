@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +11,7 @@ import Chat from "./Chat";
 import { useGameStore } from "@/lib/stores/useGameStore";
 import { useSocketStore } from "@/lib/stores/useSocketStore";
 import { useChatStore } from "@/lib/stores/useChatStore";
+import { useAudio } from "@/lib/stores/useAudio";
 import { startAiGame } from "@/lib/aiPlayer";
 
 const Game = () => {
@@ -42,6 +43,10 @@ const Game = () => {
   } = useSocketStore();
   
   const { resetChat } = useChatStore();
+  const { playWinSound } = useAudio();
+  
+  // Track if win sound has been played
+  const winSoundPlayed = useRef(false);
 
   // Initialize the game
   useEffect(() => {
@@ -99,6 +104,19 @@ const Game = () => {
     navigate("/");
   };
 
+  // Play win sound when game is over
+  useEffect(() => {
+    if (isGameOver && !winSoundPlayed.current) {
+      playWinSound();
+      winSoundPlayed.current = true;
+    }
+    
+    if (!isGameOver) {
+      // Reset flag when game is not over
+      winSoundPlayed.current = false;
+    }
+  }, [isGameOver, playWinSound]);
+  
   // Handle new game
   const handleNewGame = () => {
     resetGame();
