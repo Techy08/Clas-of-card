@@ -36,11 +36,13 @@ const AudioManager = ({ showControls = true }: { showControls?: boolean }) => {
         bgMusic.loop = true;
         setBackgroundMusic(bgMusic);
         
-        // Card sounds
-        const cardFlip = new Audio('/sounds/hit.mp3'); // Using hit.mp3 as card flip sound
+        // Card sounds - fallback to existing sounds since files are empty
+        const cardFlip = new Audio('/sounds/hit.mp3');
+        cardFlip.volume = 0.2; // Lower volume for card flip
         setCardFlipSound(cardFlip);
         
-        const cardMove = new Audio('/sounds/hit.mp3'); // Using hit.mp3 as card move sound too
+        const cardMove = new Audio('/sounds/hit.mp3');
+        cardMove.volume = 0.25; // Adjusted volume for card move
         setCardMoveSound(cardMove);
         
         // Game sounds
@@ -50,7 +52,8 @@ const AudioManager = ({ showControls = true }: { showControls?: boolean }) => {
         const success = new Audio('/sounds/success.mp3');
         setSuccessSound(success);
         
-        const win = new Audio('/sounds/success.mp3'); // Using success.mp3 as win sound
+        const win = new Audio('/sounds/success.mp3'); // Fallback to success sound
+        win.volume = 0.5; // Higher volume for win
         setWinSound(win);
         
         // Start playing background music automatically
